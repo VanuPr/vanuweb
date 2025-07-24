@@ -7,8 +7,10 @@ import { Footer } from "@/components/footer";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Award, Target, Leaf, TestTube2, Banknote, Users2 } from "lucide-react";
+import { Award, Target, Leaf, TestTube2, Banknote, Users2, FileText } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function AboutPage() {
   const { translations } = useLanguage();
@@ -41,17 +43,23 @@ export default function AboutPage() {
       description: "Comprehensive soil analysis to provide tailored recommendations for improving soil health and fertility."
     },
     {
-      icon: <Banknote className="w-8 h-8 text-primary" />,
-      title: "Kisan Credit Card Assistance",
-      description: "Helping farmers navigate the application process for Kisan Credit Cards to secure necessary funding."
-    },
-    {
       icon: <Users2 className="w-8 h-8 text-primary" />,
       title: "Community Workshops",
       description: "Organizing educational workshops and training sessions for farmers on the latest organic techniques."
     },
   ];
   
+  const showcasedDocs = [
+    {
+        name: "Certificate of Incorporation",
+        url: "https://github.com/VanuPr/vanu-assets/blob/main/CERTIFICATE%20OF%20INCORPORATION%20(1)%20(1).PDF?raw=true"
+    },
+    {
+        name: "Fertilizer License",
+        url: "https://github.com/VanuPr/vanu-assets/blob/main/FERTILIZER.pdf?raw=true"
+    },
+  ]
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
@@ -109,7 +117,7 @@ export default function AboutPage() {
               <h2 className="text-3xl font-headline font-bold tracking-tight text-foreground sm:text-4xl">{t.coreServicesTitle}</h2>
               <p className="mt-4 max-w-2xl mx-auto text-muted-foreground">{t.coreServicesDesc}</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {services.map((service, index) => (
                 <Card key={index} className="text-center hover:shadow-lg transition-shadow">
                   <CardContent className="p-6">
@@ -143,6 +151,40 @@ export default function AboutPage() {
                   <p className="text-sm text-muted-foreground">{director.title}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Transparency Section */}
+        <section id="transparency" className="w-full py-16 md:py-24 bg-primary/5">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="text-center mb-12">
+                <div className="inline-block bg-primary/10 text-primary p-3 rounded-full mb-4">
+                    <FileText className="w-8 h-8" />
+                </div>
+                <h2 className="text-3xl font-headline font-bold tracking-tight text-foreground sm:text-4xl">Our Commitment to Transparency</h2>
+                <p className="mt-4 max-w-2xl mx-auto text-muted-foreground">
+                    We believe in complete transparency. Here are some of our key legal documents. You can view all of them on our legal page.
+                </p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {showcasedDocs.map((doc, index) => (
+                     <Card key={index}>
+                        <CardHeader>
+                            <CardTitle>{doc.name}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="w-full h-[60vh] rounded-md overflow-hidden border">
+                                <iframe src={`https://docs.google.com/gview?url=${doc.url}&embedded=true`} className="w-full h-full" frameBorder="0"></iframe>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+            <div className="text-center mt-12">
+                 <Link href="/legal">
+                    <Button size="lg">View All Legal Documents</Button>
+                </Link>
             </div>
           </div>
         </section>

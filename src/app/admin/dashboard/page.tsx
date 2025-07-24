@@ -6,7 +6,7 @@ import { collection, getDocs, query, orderBy, limit, Timestamp, doc, getDoc, set
 import { db } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { IndianRupee, ShoppingBag, ListOrdered, Loader2, ArrowRight, PlusCircle, Ship, Trash2, Tag, Check, X, PackageX, PackageCheck, Mail, MessageSquare } from "lucide-react";
+import { IndianRupee, ShoppingBag, ListOrdered, Loader2, ArrowRight, PlusCircle, Ship, Trash2, Tag, Check, X, PackageX, PackageCheck, Mail, MessageSquare, Users, CheckSquare, CalendarCheck } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { sendNotificationEmail } from '@/ai/flows/send-email-flow';
+import { startOfToday } from 'date-fns';
 
 interface Order {
   id: string;
@@ -49,6 +50,9 @@ export default function AdminDashboard() {
     products: 0,
     orders: 0,
     revenue: 0,
+    employees: 0,
+    presentToday: 0,
+    tasksCompletedToday: 0,
   });
   const [recentProducts, setRecentProducts] = useState<Product[]>([]);
   const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
@@ -71,38 +75,48 @@ export default function AdminDashboard() {
       setLoadingRecents(true);
 
       try {
-        // Fetch stats
+        const todayStart = startOfToday();
+        const todayDateString = new Date().toISOString().split('T')[0];
+        
+        // --- Core Stats ---
         const productsSnapshot = await getDocs(collection(db, 'products'));
         const ordersSnapshot = await getDocs(collection(db, 'orders'));
+        const employeesSnapshot = await getDocs(collection(db, 'employees'));
         
-        const totalProducts = productsSnapshot.size;
-        const totalOrders = ordersSnapshot.size;
-        const totalRevenue = ordersSnapshot.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0);
+        // Tasks completed today
+        const tasksQuery = query(collection(db, 'tasks'), where('completedAt', '>=', Timestamp.fromDate(todayStart)));
+        const tasksSnapshot = await getDocs(tasksQuery);
+
+        // Attendance today
+        let presentCount = 0;
+        for (const empDoc of employeesSnapshot.docs) {
+          const attendanceRef = doc(db, 'employees', empDoc.id, 'attendance', todayDateString);
+          const attendanceSnap = await getDoc(attendanceRef);
+          if (attendanceSnap.exists()) {
+            presentCount++;
+          }
+        }
 
         setStats({
-          products: totalProducts,
-          orders: totalOrders,
-          revenue: totalRevenue,
+          products: productsSnapshot.size,
+          orders: ordersSnapshot.size,
+          revenue: ordersSnapshot.docs.reduce((sum, doc) => sum + (doc.data().total || 0), 0),
+          employees: employeesSnapshot.size,
+          presentToday: presentCount,
+          tasksCompletedToday: tasksSnapshot.size,
         });
 
-        // Fetch recent products
+        // --- Recent Products ---
         const recentProductsQuery = query(collection(db, 'products'), orderBy('createdAt', 'desc'), limit(5));
         const recentProductsSnapshot = await getDocs(recentProductsQuery);
         setRecentProducts(recentProductsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
 
-        // Fetch pending orders
-        const q = query(collection(db, 'orders'), where('status', '==', 'Pending'), orderBy('date', 'desc'));
-        const unsubPendingOrders = onSnapshot(q, (snapshot) => {
-            setPendingOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-        });
-
-        // Fetch shipping charge
+        // --- Shipping Charge ---
         const shippingDoc = await getDoc(doc(db, 'settings', 'shipping'));
         if (shippingDoc.exists()) {
           setShippingCharge(shippingDoc.data().charge.toString());
         }
         
-        // Unsubscribe can be returned from useEffect to cleanup
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
         toast({
@@ -118,13 +132,12 @@ export default function AdminDashboard() {
 
 
   useEffect(() => {
-    const unsub = onSnapshot(query(collection(db, 'orders'), where('status', '==', 'Pending'), orderBy('date', 'desc')), (snapshot) => {
+    // Listener for pending orders
+    const unsubPendingOrders = onSnapshot(query(collection(db, 'orders'), where('status', '==', 'Pending'), orderBy('date', 'desc')), (snapshot) => {
         setPendingOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
     });
 
-    fetchDashboardData();
-
-    // Setup listener for fees
+    // Listener for fees
     setLoadingFees(true);
     const feesDocRef = doc(db, 'settings', 'fees');
     const unsubscribeFees = onSnapshot(feesDocRef, (doc) => {
@@ -135,9 +148,13 @@ export default function AdminDashboard() {
         }
         setLoadingFees(false);
     });
+    
+    // Initial data fetch
+    fetchDashboardData();
 
+    // Cleanup listeners
     return () => {
-        unsub();
+        unsubPendingOrders();
         unsubscribeFees();
     }
   }, [toast]);
@@ -259,7 +276,76 @@ export default function AdminDashboard() {
             </Link>
          </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
+              <>
+                <div className="text-2xl font-bold">{stats.employees}</div>
+                <p className="text-xs text-muted-foreground">Total team members</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+            <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+             {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
+              <>
+                <div className="text-2xl font-bold">{stats.presentToday} / {stats.employees}</div>
+                <p className="text-xs text-muted-foreground">Employees marked present</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tasks Completed Today</CardTitle>
+            <CheckSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
+              <>
+                <div className="text-2xl font-bold">{stats.tasksCompletedToday}</div>
+                <p className="text-xs text-muted-foreground">Tasks marked as done today</p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Set Shipping Charge</CardTitle>
+            <Ship className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+              <div className="flex items-center gap-2">
+                <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                <Input 
+                    type="number" 
+                    value={shippingCharge} 
+                    onChange={(e) => setShippingCharge(e.target.value)}
+                    placeholder="e.g. 50"
+                    disabled={loadingShipping}
+                />
+              </div>
+               <p className="text-xs text-muted-foreground mt-1">Set a global shipping fee for all orders.</p>
+          </CardContent>
+          <CardFooter>
+            <Button size="sm" onClick={handleSaveShipping} disabled={loadingShipping}>
+                {loadingShipping ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                Save Charge
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -301,31 +387,6 @@ export default function AdminDashboard() {
               </>
             )}
           </CardContent>
-        </Card>
-         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Set Shipping Charge</CardTitle>
-            <Ship className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-              <div className="flex items-center gap-2">
-                <IndianRupee className="h-4 w-4 text-muted-foreground" />
-                <Input 
-                    type="number" 
-                    value={shippingCharge} 
-                    onChange={(e) => setShippingCharge(e.target.value)}
-                    placeholder="e.g. 50"
-                    disabled={loadingShipping}
-                />
-              </div>
-               <p className="text-xs text-muted-foreground mt-1">Set a global shipping fee for all orders.</p>
-          </CardContent>
-          <CardFooter>
-            <Button size="sm" onClick={handleSaveShipping} disabled={loadingShipping}>
-                {loadingShipping ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                Save Charge
-            </Button>
-          </CardFooter>
         </Card>
       </div>
 

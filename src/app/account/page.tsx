@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuthState, useUpdateProfile, useUpdateEmail, useSendPasswordResetEmail } from 'react-firebase-hooks/auth';
+import { useAuthState, useUpdateProfile } from 'react-firebase-hooks/auth';
 import { auth, db, storage } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -85,7 +85,7 @@ interface Order {
   email?: string;
 }
 
-type ActiveView = 'profile' | 'orders' | 'security' | 'addresses' | 'cart' | 'wishlist';
+type ActiveView = 'profile' | 'orders' | 'addresses' | 'cart' | 'wishlist';
 
 export default function AccountPage() {
     const [user, loadingAuth, authError] = useAuthState(auth);
@@ -114,8 +114,6 @@ export default function AccountPage() {
 
     // Firebase hooks for profile updates
     const [updateProfileHook, updatingProfile] = useUpdateProfile(auth);
-    const [updateEmailHook, updatingEmail] = useUpdateEmail(auth);
-    const [sendPasswordResetEmailHook, sendingReset, resetError] = useSendPasswordResetEmail(auth);
     
     useEffect(() => {
         if (!loadingAuth && !user) {
@@ -238,51 +236,6 @@ export default function AccountPage() {
         setProfile(initialProfile);
         setIsEditing(false);
         setNewAvatarFile(null);
-    }
-    
-    const handleEmailUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const newEmail = (e.currentTarget.elements.namedItem('newEmail') as HTMLInputElement).value;
-        if (!user || !newEmail || newEmail === user.email) {
-            toast({ variant: 'destructive', title: 'Invalid Email', description: 'Please provide a new, valid email address.'});
-            return;
-        };
-
-        if (!window.confirm("Changing your email requires re-authentication. You will be logged out and will need to log back in with your new email. Proceed?")) return;
-        
-        try {
-            const oldEmail = user.email!;
-            await updateEmailHook(newEmail);
-
-            await sendNotificationEmail({
-                to: newEmail,
-                subject: "Your Email Has Been Updated",
-                text: `Hi ${profile.firstName},\n\nThis is a confirmation that your email address for Vanu Organic has been updated to ${newEmail}.\n\nThank you!`,
-                html: `<p>Hi ${profile.firstName},</p><p>This is a confirmation that your email address for Vanu Organic has been updated to ${newEmail}.</p><p>Thank you!</p>`
-            });
-            await sendNotificationEmail({ // Notify old email
-                to: oldEmail,
-                subject: "Security Alert: Email Changed",
-                text: `Hi ${profile.firstName},\n\nYour email address for Vanu Organic was changed to ${newEmail}. If you did not authorize this, please contact our support immediately.`,
-                html: `<p>Hi ${profile.firstName},</p><p>Your email address for Vanu Organic was changed to ${newEmail}. If you did not authorize this, please contact our support immediately.</p>`
-            });
-
-            toast({title: "Email Updated Successfully", description: "Please log in with your new email address."});
-            auth.signOut();
-            router.push('/customer-login');
-        } catch (error: any) {
-             toast({ variant: 'destructive', title: 'Email Update Failed', description: error.message || 'Please log out and log back in before trying again.' });
-        }
-    }
-
-    const handlePasswordReset = async () => {
-        if (!user?.email) return;
-        const success = await sendPasswordResetEmailHook(user.email);
-        if (success) {
-            toast({title: "Password Reset Email Sent", description: "Check your inbox for a link to reset your password."});
-        } else if (resetError) {
-             toast({ variant: 'destructive', title: 'Failed to Send', description: resetError.message });
-        }
     }
 
     const handleDownloadInvoice = async (order: Order) => {
@@ -570,48 +523,6 @@ export default function AccountPage() {
         </div>
     );
 
-    const SecurityView = () => (
-        <div className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Change Email</CardTitle>
-                    <CardDescription>Update the email address associated with your account. You will be logged out after this change.</CardDescription>
-                </CardHeader>
-                <form onSubmit={handleEmailUpdate}>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="currentEmail">Current Email</Label>
-                            <Input id="currentEmail" value={user.email || ''} disabled />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="newEmail">New Email</Label>
-                            <Input id="newEmail" name="newEmail" type="email" placeholder="Enter your new email" required disabled={updatingEmail} />
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                         <Button type="submit" disabled={updatingEmail}>
-                            {updatingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                            Update Email
-                        </Button>
-                    </CardFooter>
-                </form>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Change Password</CardTitle>
-                    <CardDescription>We will send a password reset link to your email address.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button onClick={handlePasswordReset} disabled={sendingReset}>
-                        {sendingReset ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                        Send Password Reset Email
-                    </Button>
-                    {resetError && <p className="text-sm text-destructive mt-2">{resetError.message}</p>}
-                </CardContent>
-            </Card>
-        </div>
-    );
-
     const CartView = () => (
          cart.length === 0 ? (
             <div className="text-center py-8">
@@ -800,13 +711,6 @@ export default function AccountPage() {
                                             My Wishlist
                                         </Button>
                                         <Button 
-                                            variant={activeView === 'security' ? 'secondary' : 'ghost'} 
-                                            className="justify-start"
-                                            onClick={() => setActiveView('security')}>
-                                            <Shield className="mr-2 h-4 w-4"/>
-                                            Security
-                                        </Button>
-                                        <Button 
                                             variant="ghost" 
                                             className="justify-start text-destructive hover:text-destructive"
                                             onClick={() => { auth.signOut(); router.push('/')}}>
@@ -825,7 +729,6 @@ export default function AccountPage() {
                                             <CardTitle className="text-2xl capitalize">
                                                 {activeView === 'profile' && 'Profile Information'}
                                                 {activeView === 'orders' && 'Order History'}
-                                                {activeView === 'security' && 'Security Settings'}
                                                 {activeView === 'addresses' && 'Manage Addresses'}
                                                 {activeView === 'cart' && 'Items in Your Cart'}
                                                 {activeView === 'wishlist' && 'Your Wishlist'}
@@ -852,10 +755,8 @@ export default function AccountPage() {
                                                 <AddressesView />
                                             ) : activeView === 'cart' ? (
                                                 <CartView />
-                                            ) : activeView === 'wishlist' ? (
-                                                <WishlistView />
                                             ) : (
-                                                <SecurityView />
+                                                <WishlistView />
                                             )
                                         )}
                                     </CardContent>

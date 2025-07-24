@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
-import { Loader2, LogOut, LayoutDashboard, ShoppingBag, ListOrdered, SlidersHorizontal, Users, FileText, ChevronDown, ClipboardList, ShieldAlert, Wrench, Shapes, Truck, MapPin } from 'lucide-react';
+import { doc, onSnapshot, Timestamp, getDocs, collection, where, query, limit } from 'firebase/firestore';
+import { Loader2, LogOut, LayoutDashboard, ShoppingBag, ListOrdered, SlidersHorizontal, Users, FileText, ChevronDown, ClipboardList, ShieldAlert, Wrench, Shapes, Truck, MapPin, UserPlus, GalleryHorizontal } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '@/components/ui/sidebar';
 import { AdminHeader } from '@/components/admin-header';
@@ -24,6 +24,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [adminPageStatus, setAdminPageStatus] = React.useState<{ [key: string]: string }>({});
   const [validUntil, setValidUntil] = React.useState<Timestamp | null>(null);
   const [loadingLock, setLoadingLock] = React.useState(true);
+  const [loadingRole, setLoadingRole] = React.useState(true);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
 
 
@@ -42,7 +43,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   React.useEffect(() => {
-    if (loading || loadingLock) return;
+    if (loading) return; // Wait until Firebase auth state is resolved
+
+    const verifyAdminRole = async () => {
+        if (!user) {
+            router.push('/employee-login');
+            return;
+        }
+
+        setLoadingRole(true);
+        // Special access for dev and main admin
+        if (user.email === 'dev@akm.com' || user.email === 'admin@vanu.com') {
+            setLoadingRole(false);
+            return; 
+        }
+        
+        // Check for other admins in the employees collection
+        const q = query(collection(db, 'employees'), where('email', '==', user.email), limit(1));
+        const employeeSnapshot = await getDocs(q);
+        
+        if (employeeSnapshot.empty || employeeSnapshot.docs[0].data().role !== 'Admin') {
+            // Not an admin, redirect
+            router.push('/employee-login');
+        } else {
+            setLoadingRole(false);
+        }
+    };
+
+    verifyAdminRole();
+  }, [user, loading, router]);
+
+  React.useEffect(() => {
+    if (loading || loadingLock || loadingRole) return;
 
     if (!user) {
       router.push('/employee-login');
@@ -71,14 +103,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     
     setIsRedirecting(false);
 
-  }, [user, loading, loadingLock, router, pathname, adminStatus, validUntil, adminPageStatus]);
+  }, [user, loading, loadingLock, loadingRole, router, pathname, adminStatus, validUntil, adminPageStatus]);
 
 
-  if (loading || loadingLock || !user || isRedirecting) {
+  if (loading || loadingLock || loadingRole || isRedirecting) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">Loading...</p>
+        <p className="ml-2">Verifying access...</p>
       </div>
     );
   }
@@ -170,6 +202,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <SidebarMenuSubButton>Services</SidebarMenuSubButton>
                                 </Link>
                             </SidebarMenuSubItem>
+                             <SidebarMenuSubItem>
+                                <Link href="/admin/gallery" passHref>
+                                    <SidebarMenuSubButton>Gallery</SidebarMenuSubButton>
+                                </Link>
+                            </SidebarMenuSubItem>
                           </SidebarMenuSub>
                         </CollapsibleContent>
                       </Collapsible>
@@ -209,20 +246,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <SidebarMenuButton asChild>
                            <CollapsibleTrigger className="w-full">
                             <ClipboardList />
-                              Applications
+                              Tasks & Reports
                             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
                           </CollapsibleTrigger>
                         </SidebarMenuButton>
                         <CollapsibleContent asChild>
                           <SidebarMenuSub>
-                             <SidebarMenuSubItem>
-                                <Link href="/admin/services/kcc-applications" passHref>
-                                    <SidebarMenuSubButton>KCC Applications</SidebarMenuSubButton>
-                                </Link>
-                             </SidebarMenuSubItem>
                               <SidebarMenuSubItem>
                                 <Link href="/admin/tasks" passHref>
                                     <SidebarMenuSubButton>Tasks</SidebarMenuSubButton>
+                                </Link>
+                            </SidebarMenuSubItem>
+                             <SidebarMenuSubItem>
+                                <Link href="/admin/reports" passHref>
+                                    <SidebarMenuSubButton>Daily Reports</SidebarMenuSubButton>
                                 </Link>
                             </SidebarMenuSubItem>
                           </SidebarMenuSub>

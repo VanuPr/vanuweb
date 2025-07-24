@@ -75,6 +75,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleUpdateStatus = async (userId: string, status: User['status']) => {
@@ -224,3 +225,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+    

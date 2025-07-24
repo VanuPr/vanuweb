@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Leaf, Shield, HeartHandshake, Users, Sparkles, Loader2, Search } from "lucide-react";
+import { Leaf, Shield, HeartHandshake, Users, Sparkles, Loader2, Search, Tractor } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { ServiceSlideshow } from "@/components/service-slideshow";
 import { FilterSidebar, FilterState } from "@/components/filter-sidebar";
 import { TypewriterWelcome } from "@/components/typewriter-welcome";
+import { ServicesModal } from "@/components/services-modal";
 
 
 interface Product {
@@ -60,6 +61,7 @@ export default function Home() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [isServicesModalOpen, setIsServicesModalOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
     maxPrice: 1000, // Default max price
@@ -158,6 +160,7 @@ export default function Home() {
   );
 
   return (
+    <>
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
       <main className="flex-1">
@@ -176,9 +179,10 @@ export default function Home() {
                         <Link href="/register">
                             <Button size="lg" className="w-full sm:w-auto">Create an Account</Button>
                         </Link>
-                        <Link href="/products">
-                            <Button size="lg" variant="secondary" className="w-full sm:w-auto">Browse Products</Button>
-                        </Link>
+                         <Button size="lg" variant="secondary" className="w-full sm:w-auto" onClick={() => setIsServicesModalOpen(true)}>
+                            <Tractor className="mr-2 h-5 w-5"/>
+                            Our Services
+                        </Button>
                     </div>
                 </div>
             </section>
@@ -314,5 +318,7 @@ export default function Home() {
       </main>
       <Footer />
     </div>
+    <ServicesModal isOpen={isServicesModalOpen} onClose={() => setIsServicesModalOpen(false)} />
+    </>
   );
 }

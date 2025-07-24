@@ -14,9 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { indianStates } from "@/lib/indian-states";
+import { useRouter } from "next/navigation";
 
 export default function KisanJaivikCardPage() {
     const { toast } = useToast();
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -82,13 +84,14 @@ export default function KisanJaivikCardPage() {
             });
 
             if (!res.ok) {
-                throw new Error('Failed to create Razorpay order');
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'Failed to create Razorpay order');
             }
 
             const { order } = await res.json();
             
             const options = {
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
                 amount: order.amount,
                 currency: order.currency,
                 name: "Vanu Organic Pvt Ltd",
@@ -96,7 +99,10 @@ export default function KisanJaivikCardPage() {
                 image: "/logo.png",
                 order_id: order.id,
                 handler: async function (response: any) {
-                    await saveApplicationToFirestore(response.razorpay_payment_id);
+                    const docId = await saveApplicationToFirestore(response.razorpay_payment_id);
+                    if (docId) {
+                       router.push(`/application-confirmation?id=${docId}`);
+                    }
                 },
                 prefill: {
                     name: formData.name,
@@ -110,14 +116,14 @@ export default function KisanJaivikCardPage() {
             const rzp = new (window as any).Razorpay(options);
             rzp.open();
 
-        } catch (error) {
-             toast({ variant: 'destructive', title: 'Payment Error', description: 'Could not initiate payment. Please try again.' });
+        } catch (error: any) {
+             toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate payment. Please try again.' });
         } finally {
              setIsLoading(false);
         }
     };
 
-    const saveApplicationToFirestore = async (paymentId: string) => {
+    const saveApplicationToFirestore = async (paymentId: string): Promise<string | null> => {
         try {
             // Note: File upload to storage is not implemented here. This only saves form data.
             const docData = {
@@ -126,7 +132,7 @@ export default function KisanJaivikCardPage() {
                 status: 'Pending',
                 submittedAt: serverTimestamp()
             };
-            await addDoc(collection(db, "kisan-jaivik-card-applications"), docData);
+            const docRef = await addDoc(collection(db, "kisan-jaivik-card-applications"), docData);
             toast({ title: 'Application Submitted', description: 'Your application has been received successfully.'});
             // Reset form
             setFormData({
@@ -140,9 +146,12 @@ export default function KisanJaivikCardPage() {
             if(aadharInput) aadharInput.value = '';
             if(panInput) panInput.value = '';
 
+            return docRef.id;
+
         } catch (error) {
             console.error("Error submitting application: ", error);
             toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error saving your application after payment.'});
+            return null;
         }
     }
 

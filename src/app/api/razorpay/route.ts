@@ -3,13 +3,19 @@ import { NextResponse } from 'next/server';
 import Razorpay from 'razorpay';
 import { randomBytes } from 'crypto';
 
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || ''
-});
 
 export async function POST(request: Request) {
     try {
+        // Moved initialization inside the handler
+        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+            throw new Error('Razorpay keys are not defined in environment variables.');
+        }
+
+        const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET
+        });
+        
         const { amount } = await request.json();
 
         if (!amount || typeof amount !== 'number') {
@@ -30,8 +36,8 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ order }, { status: 200 });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Razorpay API Error:", error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
     }
 }

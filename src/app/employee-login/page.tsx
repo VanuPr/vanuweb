@@ -4,7 +4,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc, query, where, collection, getDocs } from "firebase/firestore";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import Link from 'next/link';
+import { Separator } from "@/components/ui/separator";
 
 export default function EmployeeLoginPage() {
   const router = useRouter();
@@ -28,24 +31,33 @@ export default function EmployeeLoginPage() {
       const user = userCredential.user;
 
       if (user && user.email) {
-        if (user.email === 'dev@akm.com') {
-          toast({ title: "Developer Login Successful", description: "Redirecting to dev dashboard..." });
-          router.push('/dev');
-        } else if (user.email === 'admin@vanu.com') {
-          toast({ title: "Admin Login Successful", description: "Redirecting to admin dashboard..." });
-          router.push('/admin/dashboard');
-        } else if (user.email.endsWith('@vanuemp.in')) {
-          toast({ title: "Employee Login Successful", description: "Redirecting to employee dashboard..." });
-          router.push('/employee/dashboard');
-        } else {
-            // Default redirection or error if email doesn't match roles
+          
+          if(user.email === 'dev@akm.com') {
+             toast({ title: "Developer Login Successful", description: "Redirecting to dev dashboard..." });
+             router.push('/dev');
+             return;
+          }
+          
+          if (user.email === 'admin@vanu.com') {
+             toast({ title: "Admin Login Successful", description: "Redirecting to admin dashboard..." });
+             router.push('/admin/dashboard');
+             return;
+          }
+
+          const q = query(collection(db, 'employees'), where('email', '==', user.email));
+          const employeeSnapshot = await getDocs(q);
+          
+          if (!employeeSnapshot.empty) {
+            toast({ title: "Employee Login Successful", description: "Redirecting to employee dashboard..." });
+            router.push('/employee/dashboard');
+          } else {
              toast({
                 variant: "destructive",
-                title: "Login Failed",
+                title: "Access Denied",
                 description: "You do not have permission to access this area.",
             });
             auth.signOut();
-        }
+          }
       }
       
     } catch (error: any) {
@@ -76,7 +88,7 @@ export default function EmployeeLoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="name@vanuemp.in" 
+                  placeholder="username@vanuemp.in" 
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -95,10 +107,17 @@ export default function EmployeeLoginPage() {
                 />
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col gap-4">
               <Button className="w-full" type="submit" disabled={isLoading}>
                 {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
+              <Separator />
+               <p className="text-center text-sm text-muted-foreground">
+                  Want to join our team?{' '}
+                  <Link href="/employee-signup" className="underline font-semibold text-primary">
+                    Register as Employee
+                  </Link>
+                </p>
             </CardFooter>
           </form>
         </Card>

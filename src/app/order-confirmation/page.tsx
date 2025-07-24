@@ -80,6 +80,11 @@ function OrderConfirmationContent() {
                     ))}
                  </div>
             </div>
+            <div className="pt-6">
+                <Link href="/customer-support">
+                    <Button variant="link">Have questions? Contact Support</Button>
+                </Link>
+            </div>
         </CardContent>
     </Card>
   );

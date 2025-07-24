@@ -1,5 +1,5 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, deleteApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -25,4 +25,17 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
 
-export { app, auth, db, storage, googleProvider };
+// Function to create a secondary, temporary Firebase app instance
+const createSecondaryApp = () => {
+    const appName = `secondary-app-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, appName);
+    const tempAuth = getAuth(tempApp);
+    
+    // Optional: Clean up the app after a delay, though it's often not necessary
+    // setTimeout(() => deleteApp(tempApp), 5000);
+
+    return { tempApp, tempAuth };
+};
+
+
+export { app, auth, db, storage, googleProvider, createSecondaryApp };

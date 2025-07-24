@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp, getDocs, orderBy } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, orderBy, query } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -152,7 +152,9 @@ export default function AddProductPage() {
                                 <Label htmlFor="category">Category</Label>
                                 <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value})} disabled={isLoading || loadingCategories}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder={loadingCategories ? 'Loading...' : 'Select a category'} />
+                                        <SelectValue placeholder={loadingCategories ? 'Loading...' : 'Select a category'}>
+                                          {categories.find(c => c.slug === newProduct.category)?.name}
+                                        </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {categories.map(cat => (

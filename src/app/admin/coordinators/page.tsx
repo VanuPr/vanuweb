@@ -2,15 +2,16 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, Timestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Loader2, Check, X, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 interface CoordinatorApplication {
   id: string;
@@ -19,7 +20,7 @@ interface CoordinatorApplication {
   district: string;
   block: string;
   panchayat: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  status: 'Received' | 'Approved' | 'Rejected';
   submittedAt: Timestamp;
 }
 
@@ -28,15 +29,13 @@ export default function CoordinatorApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchApplications = async () => {
+  const fetchApplications = async () => {
       setLoading(true);
       try {
         const q = query(collection(db, 'coordinator-applications'), orderBy('submittedAt', 'desc'));
         const querySnapshot = await getDocs(q);
         const appsData = querySnapshot.docs.map(doc => ({ 
             id: doc.id, 
-            status: 'Pending', // Default status for now
             ...doc.data() 
         } as CoordinatorApplication));
         setApplications(appsData);
@@ -48,12 +47,24 @@ export default function CoordinatorApplicationsPage() {
       }
     };
 
+  useEffect(() => {
     fetchApplications();
   }, [toast]);
+  
+  const handleStatusUpdate = async (id: string, newStatus: 'Approved' | 'Rejected') => {
+      try {
+          const docRef = doc(db, 'coordinator-applications', id);
+          await updateDoc(docRef, { status: newStatus });
+          toast({ title: 'Status updated successfully' });
+          fetchApplications(); // Refresh list
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Failed to update status'});
+      }
+  }
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'Pending': return 'default';
+      case 'Received': return 'default';
       case 'Approved': return 'secondary';
       case 'Rejected': return 'destructive';
       default: return 'outline';
@@ -107,9 +118,17 @@ export default function CoordinatorApplicationsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Approve</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Reject</DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/admin/coordinators/${app.id}`}>
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusUpdate(app.id, 'Approved')}>
+                            <Check className="mr-2 h-4 w-4" /> Approve
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleStatusUpdate(app.id, 'Rejected')}>
+                             <X className="mr-2 h-4 w-4" /> Reject
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
