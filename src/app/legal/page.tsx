@@ -181,5 +181,4 @@ export default function LegalPage() {
             <Footer />
         </div>
     );
-
-    
+}
