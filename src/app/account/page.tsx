@@ -145,10 +145,11 @@ export default function AccountPage() {
                 }
             };
             
-            const q = query(collection(db, 'orders'), where('userId', '==', user.uid), orderBy('date', 'desc'));
+            const q = query(collection(db, 'orders'), where('userId', '==', user.uid));
             const unsubOrders = onSnapshot(q, (querySnapshot) => {
                 setLoadingOrders(true);
                 const userOrders = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+                userOrders.sort((a, b) => b.date.toMillis() - a.date.toMillis());
                 setOrders(userOrders);
                 setLoadingOrders(false);
             }, (error) => {

@@ -2,8 +2,9 @@
 "use client"
 
 import { useState } from "react";
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -122,18 +123,32 @@ export default function KisanJaivikCardPage() {
              setIsLoading(false);
         }
     };
+    
+    const uploadFile = async (file: File, applicationId: string, fileType: string): Promise<string> => {
+        const storageRef = ref(storage, `kisan-jaivik-card-applications/${applicationId}/${fileType}-${file.name}`);
+        const uploadResult = await uploadBytes(storageRef, file);
+        return getDownloadURL(uploadResult.ref);
+    };
 
     const saveApplicationToFirestore = async (paymentId: string): Promise<string | null> => {
         try {
-            // Note: File upload to storage is not implemented here. This only saves form data.
-            const docData = {
+            // Create doc first to get an ID
+            const docRef = await addDoc(collection(db, "kisan-jaivik-card-applications"), {
                 ...formData,
                 paymentId,
                 status: 'Pending',
                 submittedAt: serverTimestamp()
-            };
-            const docRef = await addDoc(collection(db, "kisan-jaivik-card-applications"), docData);
+            });
+            
+            // Upload files and get URLs
+            const aadharUrl = files.aadharFile ? await uploadFile(files.aadharFile, docRef.id, 'aadhar') : '';
+            const panUrl = files.panFile ? await uploadFile(files.panFile, docRef.id, 'pan') : '';
+
+            // Update doc with file URLs
+            await updateDoc(docRef, { aadharUrl, panUrl });
+            
             toast({ title: 'Application Submitted', description: 'Your application has been received successfully.'});
+            
             // Reset form
             setFormData({
                 name: '', fatherName: '', dob: '', aadharNo: '', panNo: '', mobile: '',

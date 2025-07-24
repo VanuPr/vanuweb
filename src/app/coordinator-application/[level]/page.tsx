@@ -99,7 +99,7 @@ export default function CoordinatorApplicationFormPage() {
     });
 
     useEffect(() => {
-        if (level && !formData.positionType) {
+        if (level && formData.positionType !== level) {
             setFormData(prev => ({...prev, positionType: level}));
         }
     }, [level, formData.positionType]);
@@ -139,13 +139,13 @@ export default function CoordinatorApplicationFormPage() {
     };
     
     const availableDistricts = useMemo(() => {
-        if (!formData.state) return [];
+        if (!formData.state || locations.length === 0) return [];
         const selected = locations.find(l => l.id === formData.state);
         return selected ? Object.keys(selected.districts).sort() : [];
     }, [formData.state, locations]);
 
     const availableBlocks = useMemo(() => {
-        if (!formData.state || !formData.district) return [];
+        if (!formData.state || !formData.district || locations.length === 0) return [];
         const selectedState = locations.find(l => l.id === formData.state);
         return selectedState?.districts[formData.district]?.sort() || [];
     }, [formData.state, formData.district, locations]);
@@ -260,9 +260,9 @@ export default function CoordinatorApplicationFormPage() {
             });
 
             // Upload files and get URLs
-            const fileUploadPromises = Object.entries(files).map(([key, file]) => {
+             const fileUploadPromises = Object.entries(files).map(([key, file]) => {
                 if (file) {
-                    return uploadFile(file, docRef.id, key).then(url => ({ [key + 'Url']: url }));
+                    return uploadFile(file, docRef.id, key).then(url => ({ [`${key}Url`]: url }));
                 }
                 return Promise.resolve({});
             });
@@ -319,7 +319,6 @@ export default function CoordinatorApplicationFormPage() {
                 <CardContent className="grid md:grid-cols-2 gap-6">
                     <div className="grid gap-2"><Label htmlFor="village">Village</Label><Input id="village" value={formData.village} onChange={handleInputChange} required /></div>
                     <div className="grid gap-2"><Label htmlFor="post">Post</Label><Input id="post" value={formData.post} onChange={handleInputChange} required /></div>
-                    <div className="grid gap-2"><Label htmlFor="panchayat">Panchayat Name</Label><Input id="panchayat" value={formData.panchayat} onChange={handleInputChange} required /></div>
                     <div className="grid gap-2"><Label htmlFor="policeStation">Police Station</Label><Input id="policeStation" value={formData.policeStation} onChange={handleInputChange} required /></div>
                      <div className="grid gap-2">
                         <Label htmlFor="state">State</Label>
@@ -330,12 +329,23 @@ export default function CoordinatorApplicationFormPage() {
                     </div>
                      <div className="grid gap-2">
                         <Label htmlFor="district">District</Label>
-                        <Input id="district" value={formData.district} onChange={handleInputChange} required placeholder="Enter District"/>
+                        <Select onValueChange={(v) => handleSelectChange('district', v)} value={formData.district} required disabled={availableDistricts.length === 0}>
+                             <SelectTrigger><SelectValue placeholder="Select District" /></SelectTrigger>
+                             <SelectContent>
+                                {availableDistricts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                             </SelectContent>
+                        </Select>
                     </div>
                      <div className="grid gap-2">
                         <Label htmlFor="blockName">Block Name</Label>
-                        <Input id="blockName" value={formData.blockName} onChange={handleInputChange} required placeholder="Enter Block"/>
+                        <Select onValueChange={(v) => handleSelectChange('blockName', v)} value={formData.blockName} required disabled={availableBlocks.length === 0}>
+                            <SelectTrigger><SelectValue placeholder="Select Block" /></SelectTrigger>
+                             <SelectContent>
+                                {availableBlocks.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
+                    <div className="grid gap-2"><Label htmlFor="panchayat">Panchayat Name</Label><Input id="panchayat" value={formData.panchayat} onChange={handleInputChange} required /></div>
                     <div className="grid gap-2"><Label htmlFor="pinCode">PIN Code</Label><Input id="pinCode" value={formData.pinCode} onChange={handleInputChange} required /></div>
                 </CardContent>
             </Card>
@@ -445,4 +455,3 @@ export default function CoordinatorApplicationFormPage() {
     </>
   );
 }
-

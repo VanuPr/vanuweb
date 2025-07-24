@@ -88,7 +88,7 @@ export default function EmployeeLoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="username@vanuemp.in" 
+                  placeholder="username@vanuorganic.com" 
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -111,13 +111,6 @@ export default function EmployeeLoginPage() {
               <Button className="w-full" type="submit" disabled={isLoading}>
                 {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
-              <Separator />
-               <p className="text-center text-sm text-muted-foreground">
-                  Want to join our team?{' '}
-                  <Link href="/employee-signup" className="underline font-semibold text-primary">
-                    Register as Employee
-                  </Link>
-                </p>
             </CardFooter>
           </form>
         </Card>

@@ -38,26 +38,9 @@ interface Employee {
   authUid?: string;
 }
 
-interface EmployeeApplication {
-  id: string;
-  fullName: string;
-  personalEmail: string;
-  employeeEmail: string;
-  phone: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
-  submittedAt: any;
-  password?: string;
-  dob?: string;
-  address?: string;
-  aadharNo?: string;
-  panNo?: string;
-  joiningDate?: string;
-}
-
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [applications, setApplications] = useState<EmployeeApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,11 +54,6 @@ export default function EmployeesPage() {
       const employeesSnapshot = await getDocs(qEmployees);
       const employeesData = employeesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
       setEmployees(employeesData);
-
-      const qApps = query(collection(db, 'employee-applications'), where('status', '==', 'Pending'), orderBy('fullName', 'asc'));
-      const appsSnapshot = await getDocs(qApps);
-      const appsData = appsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EmployeeApplication));
-      setApplications(appsData);
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -136,8 +114,14 @@ export default function EmployeesPage() {
             setIsSubmitting(false);
             return;
         }
+
+        const tempPassword = Math.random().toString(36).slice(-8);
+        const { tempApp, tempAuth } = createSecondaryApp();
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, currentEmployee.email!, tempPassword);
+
         await addDoc(collection(db, 'employees'), {
           ...currentEmployee,
+          authUid: userCredential.user.uid,
           createdAt: serverTimestamp()
         });
         await sendPasswordResetEmail(auth, currentEmployee.email!);
@@ -176,71 +160,6 @@ export default function EmployeesPage() {
     }
   }
 
-  const handleApprove = async (app: EmployeeApplication) => {
-    if (!app.password) {
-        toast({ variant: 'destructive', title: 'Approval Failed', description: 'Password not found for this application.' });
-        return;
-    }
-
-    const { tempApp, tempAuth } = createSecondaryApp();
-
-    try {
-        const userCredential = await createUserWithEmailAndPassword(tempAuth, app.employeeEmail, app.password);
-        const user = userCredential.user;
-
-        await addDoc(collection(db, 'employees'), {
-            name: app.fullName,
-            email: app.employeeEmail,
-            phone: app.phone,
-            role: 'Task Handler',
-            status: 'Active',
-            dob: app.dob,
-            address: app.address,
-            aadharNo: app.aadharNo,
-            panNo: app.panNo,
-            joiningDate: app.joiningDate,
-            createdAt: serverTimestamp(),
-            authUid: user.uid,
-        });
-
-        const appRef = doc(db, 'employee-applications', app.id);
-        await updateDoc(appRef, { status: 'Approved' });
-        
-        await sendNotificationEmail({
-            to: app.personalEmail,
-            subject: "Your Application to Vanu Organic has been Approved!",
-            text: `Congratulations, ${app.fullName}! Your application has been approved. You can now log in using the email ${app.employeeEmail} and the password you created.`,
-            html: `<p>Congratulations, ${app.fullName}!</p><p>Your application has been approved. You can now log in using the email <strong>${app.employeeEmail}</strong> and the password you created.</p>`
-        });
-        
-        toast({ title: "Application Approved!", description: `${app.fullName}'s account has been created.` });
-        fetchData();
-
-      } catch (error: any) {
-          toast({ variant: 'destructive', title: 'Approval Failed', description: error.message });
-      }
-  }
-
-  const handleReject = async (app: EmployeeApplication) => {
-       try {
-        const appRef = doc(db, 'employee-applications', app.id);
-        await updateDoc(appRef, { status: 'Rejected' });
-
-        await sendNotificationEmail({
-            to: app.personalEmail,
-            subject: "Update on your Vanu Organic Application",
-            text: `Hello ${app.fullName},\n\nThank you for your interest. After careful consideration, we have decided not to move forward with your application at this time.\n\nBest regards,\nVanu Organic Team`,
-            html: `<p>Hello ${app.fullName},</p><p>Thank you for your interest. After careful consideration, we have decided not to move forward with your application at this time.</p><p>Best regards,<br/>Vanu Organic Team</p>`
-        });
-        
-        toast({ title: "Application Rejected", variant: 'destructive' });
-        fetchData();
-       } catch (error: any) {
-           toast({ variant: 'destructive', title: 'Action Failed', description: error.message });
-       }
-  }
-
-
   const getStatusBadgeVariant = (status: string) => {
       return status === 'Active' ? 'default' : 'secondary';
   }
@@ -250,75 +169,12 @@ export default function EmployeesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Employee Management</h1>
         <Button onClick={() => handleOpenDialog()}>
-          <PlusCircle className="mr-2" /> Add Employee
+          <PlusCircle className="mr-2" /> Invite Employee
         </Button>
       </div>
       
       {loading && (
         <div className="flex justify-center py-8"><Loader2 className="animate-spin h-8 w-8"/></div>
-      )}
-
-      {!loading && applications.length > 0 && (
-         <Card>
-            <CardHeader>
-                <CardTitle>Pending Applications ({applications.length})</CardTitle>
-                <CardDescription>Review and manage new employee applications.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Applicant Name</TableHead>
-                            <TableHead>Login Email</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {applications.map(app => (
-                            <TableRow key={app.id}>
-                                <TableCell className="font-medium">{app.fullName}</TableCell>
-                                <TableCell>{app.employeeEmail}</TableCell>
-                                <TableCell>{app.submittedAt?.toDate().toLocaleDateString() || 'N/A'}</TableCell>
-                                <TableCell className="text-right flex gap-2 justify-end">
-                                     <Dialog>
-                                        <DialogTrigger asChild>
-                                           <Button variant="ghost" size="sm">View Details</Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-md">
-                                            <DialogHeader>
-                                                <DialogTitle>Application Details</DialogTitle>
-                                                <DialogDescription>Reviewing application for {app.fullName}.</DialogDescription>
-                                            </DialogHeader>
-                                            <div className="py-4 space-y-4">
-                                                <div className="flex items-center gap-4">
-                                                    <Avatar className="h-16 w-16"><AvatarFallback>{app.fullName.split(' ').map(n => n[0]).join('')}</AvatarFallback></Avatar>
-                                                    <div>
-                                                        <h3 className="font-bold text-lg">{app.fullName}</h3>
-                                                        <p className="text-sm text-muted-foreground">{app.employeeEmail}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2 text-sm">
-                                                    <p className="flex items-center gap-2"><Mail className="h-4 w-4 text-muted-foreground"/> {app.personalEmail}</p>
-                                                    <p className="flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground"/> {app.phone}</p>
-                                                    <p className="flex items-center gap-2"><Home className="h-4 w-4 text-muted-foreground"/> {app.address}</p>
-                                                    <p className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground"/> DOB: {app.dob}</p>
-                                                    <p className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/> Aadhar: {app.aadharNo}</p>
-                                                    <p className="flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground"/> PAN: {app.panNo}</p>
-                                                    <p className="flex items-center gap-2"><Calendar className="h-4 w-4 text-muted-foreground"/> Joining: {app.joiningDate}</p>
-                                                </div>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                    <Button size="sm" onClick={() => handleApprove(app)}><Check className="mr-2 h-4 w-4"/>Approve</Button>
-                                    <Button size="sm" variant="destructive" onClick={() => handleReject(app)}><X className="mr-2 h-4 w-4"/>Reject</Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
       )}
 
       <Card>
@@ -379,9 +235,9 @@ export default function EmployeesPage() {
           <DialogContent className="sm:max-w-2xl" onInteractOutside={(e) => { e.preventDefault(); }} >
               <form onSubmit={handleSubmit}>
                 <DialogHeader>
-                    <DialogTitle>{currentEmployee?.id ? 'Edit Employee' : 'Add New Employee'}</DialogTitle>
+                    <DialogTitle>{currentEmployee?.id ? 'Edit Employee' : 'Invite New Employee'}</DialogTitle>
                     <DialogDescription>
-                        Fill in the details for the employee. Click save when you're done. A password setup link will be sent to their email.
+                        Fill in the details for the employee. An email will be sent for them to set their password and log in.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto px-1">
@@ -460,5 +316,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-    
