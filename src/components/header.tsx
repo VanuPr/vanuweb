@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from "next/link";
-import { Menu, ChevronDown, ShoppingCart, Globe, User, LogOut, Search, LogIn, ShieldCheck, FileText, Heart, Shapes, Tractor, Landmark, Briefcase } from "lucide-react";
+import { Menu, ChevronDown, ShoppingCart, Globe, User, LogOut, Search, LogIn, ShieldCheck, FileText, Heart, Shapes, Tractor, Landmark, Briefcase, GalleryHorizontal, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import { Logo } from "./logo";
@@ -96,7 +96,6 @@ export function Header() {
   ];
 
   const staticServiceLinks = [
-      { href: "/kisan-card-application", label: "Kisan Credit Card", icon: Tractor },
       { href: "/kisan-jaivik-card", label: "Kisan Jaivik Card", icon: Landmark },
       { href: "/coordinator-application", label: "Coordinator Application", icon: Briefcase }
   ];
@@ -117,6 +116,7 @@ export function Header() {
       isDropdown: true,
       items: allServiceLinks.length > 0 ? allServiceLinks : [{ href: "/services", label: "Our Services" }]
     },
+    { href: "/gallery", label: "Gallery" },
     { href: "/customer-support", label: t.customerSupport },
   ];
 
@@ -273,6 +273,14 @@ export function Header() {
                             </SheetClose>
                          )
                       ))}
+                       <SheetClose asChild>
+                            <Link href="/customer-support" passHref>
+                                <Button variant="ghost" className="w-full justify-start text-lg">
+                                    <Phone className="mr-2 h-4 w-4" />
+                                    Customer Support
+                                </Button>
+                            </Link>
+                        </SheetClose>
                         <div className="px-4">
                             <h3 className='font-semibold'>Language</h3>
                             <div className='grid gap-2 mt-2'>

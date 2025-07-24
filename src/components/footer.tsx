@@ -28,6 +28,9 @@ export function Footer() {
                 <li><Link href="/products" className="text-sm text-primary-foreground/70 hover:underline">{t.products}</Link></li>
                 <li><Link href="/services" className="text-sm text-primary-foreground/70 hover:underline">{t.services}</Link></li>
                 <li><Link href="/customer-support" className="text-sm text-primary-foreground/70 hover:underline">{t.contact}</Link></li>
+                <li><Link href="/legal" className="text-sm text-primary-foreground/70 hover:underline">Legal & Documents</Link></li>
+                 <li><Link href="/downloads" className="text-sm text-primary-foreground/70 hover:underline">Download Forms</Link></li>
+                 <li><Link href="/coordinator-login" className="text-sm text-primary-foreground/70 hover:underline">Coordinator Login</Link></li>
             </ul>
           </div>
 

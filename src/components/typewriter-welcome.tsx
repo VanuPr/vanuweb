@@ -2,7 +2,6 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
 import type { User } from 'firebase/auth';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
@@ -10,16 +9,18 @@ import { Sparkles } from 'lucide-react';
 
 interface TypewriterWelcomeProps {
     user: User | null | undefined;
+    displayName?: string; // Optional override for name
     fullText: string;
     duration?: number;
 }
 
-export function TypewriterWelcome({ user, fullText, duration = 12000 }: TypewriterWelcomeProps) {
+export function TypewriterWelcome({ user, displayName, fullText, duration = 12000 }: TypewriterWelcomeProps) {
     const [welcomeText, setWelcomeText] = useState('');
     const [isVisible, setIsVisible] = useState(true);
     const [isFadingOut, setIsFadingOut] = useState(false);
 
-    const fullWelcomeMessage = `Welcome, ${user?.displayName || user?.email}! ${fullText}`;
+    const nameToDisplay = displayName || user?.displayName || user?.email;
+    const fullWelcomeMessage = `Welcome, ${nameToDisplay}! ${fullText}`;
 
     useEffect(() => {
         setIsVisible(true);
@@ -47,9 +48,11 @@ export function TypewriterWelcome({ user, fullText, duration = 12000 }: Typewrit
             clearInterval(typingInterval);
             clearTimeout(hideTimeout);
         };
-    }, [user, fullText, fullWelcomeMessage, duration]);
+    // Using a key on the component is better for re-triggering than including all dependencies here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, displayName, fullText, duration]);
 
-    if (!isVisible) {
+    if (!isVisible || !nameToDisplay) {
         return null;
     }
 
