@@ -14,13 +14,29 @@ import { db } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import Script from 'next/script';
+import Image from 'next/image';
+
+function SiteLoader() {
+  return (
+    <div className="loader-container">
+      <div className="loader-logo">
+        <Image 
+          src="https://github.com/akm12109/assets_vanu/blob/main/logo.png?raw=true" 
+          alt="Vanu Organic Logo" 
+          width={100} 
+          height={100} 
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [websiteStatus, setWebsiteStatus] = useState('live');
+  const [siteSettings, setSiteSettings] = useState({ status: 'live' });
   const [loading, setLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
@@ -29,9 +45,13 @@ export default function RootLayout({
     const settingsRef = doc(db, "siteSettings", "lockState");
     const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
-        setWebsiteStatus(docSnap.data().websiteStatus || 'live');
+        setSiteSettings({ status: docSnap.data().websiteStatus || 'live' });
       }
-      setLoading(false);
+      // Delay to show loader
+      setTimeout(() => setLoading(false), 1500); 
+    }, (error) => {
+      console.error("Failed to load site settings, proceeding anyway.", error);
+      setTimeout(() => setLoading(false), 1500);
     });
     return () => unsubscribe();
   }, []);
@@ -45,23 +65,8 @@ export default function RootLayout({
     pathname === '/register' ||
     pathname === '/forgot-password';
 
-  if (loading) {
-     return (
-      <html lang="en" className="scroll-smooth">
-         <head>
-          <title>Vanu Organic</title>
-        </head>
-        <body>
-           <div className="flex min-h-screen flex-col items-center justify-center bg-background">
-                <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-           </div>
-        </body>
-      </html>
-    );
-  }
-
-  if (websiteStatus !== 'live' && !isExempted) {
-    router.push(`/maintenance?status=${websiteStatus}`);
+  if (!loading && siteSettings.status !== 'live' && !isExempted) {
+    router.push(`/maintenance?status=${siteSettings.status}`);
     return (
        <html lang="en" className="scroll-smooth">
          <head>
@@ -74,7 +79,7 @@ export default function RootLayout({
            </div>
         </body>
       </html>
-    )
+    );
   }
 
   return (
@@ -90,13 +95,13 @@ export default function RootLayout({
         <CartProvider>
           <WishlistProvider>
             <AppBody>
-              {children}
+              {loading && <SiteLoader />}
+              {!loading && children}
               <Toaster />
             </AppBody>
           </WishlistProvider>
         </CartProvider>
       </LanguageProvider>
-      {/* Add the Razorpay Checkout script to the bottom of your layout */}
       <Script src="https://checkout.razorpay.com/v1/checkout.js" />
     </html>
   );
