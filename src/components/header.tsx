@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from "next/link";
-import { Menu, ChevronDown, ShoppingCart, Globe, User, LogOut, Search, LogIn, ShieldCheck, FileText, Heart, Shapes, Tractor, Landmark, Briefcase, GalleryHorizontal, Phone } from "lucide-react";
+import { Menu, ChevronDown, ShoppingCart, Globe, User, LogOut, Search, LogIn, ShieldCheck, FileText, Heart, Shapes, Tractor, Landmark, Briefcase, GalleryHorizontal, Phone, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import { Logo } from "./logo";
@@ -121,6 +121,13 @@ export function Header() {
   ];
 
   const isAdmin = user && user.email === 'admin@vanu.com';
+  const isEmployee = user && (
+    user.email?.endsWith('@distvanu.in') ||
+    user.email?.endsWith('@blckvanu.in') ||
+    user.email?.endsWith('@panvanu.in') ||
+    user.email === 'dev@akm.com'
+  );
+
 
   return (
     <header className={cn('sticky top-0 z-50 w-full transition-all duration-300', isScrolled ? 'bg-background/80 backdrop-blur-sm shadow-md' : 'bg-transparent')}>
@@ -190,6 +197,15 @@ export function Header() {
                     <Button variant="outline">
                         <ShieldCheck className="mr-2 h-4 w-4" />
                         Admin
+                    </Button>
+                </Link>
+            )}
+
+            {isEmployee && (
+                 <Link href="/employee/dashboard" passHref>
+                    <Button variant="outline">
+                        <LayoutDashboard className="mr-2 h-4 w-4" />
+                        Dashboard
                     </Button>
                 </Link>
             )}
