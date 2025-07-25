@@ -9,6 +9,19 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: "camera=(), microphone=(), geolocation=(), payment=*, publickey-credentials-get=*",
+          },
+        ],
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {
@@ -35,6 +48,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
   env: {
