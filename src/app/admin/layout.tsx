@@ -211,60 +211,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </CollapsibleContent>
                       </Collapsible>
                     </SidebarMenuItem>
-                    <SidebarMenuItem asChild>
-                      <Collapsible>
-                        <SidebarMenuButton asChild>
-                           <CollapsibleTrigger className="w-full">
-                            <Users />
-                              People
-                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-                          </CollapsibleTrigger>
-                        </SidebarMenuButton>
-                        <CollapsibleContent asChild>
-                          <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                                <Link href="/admin/users" passHref>
-                                    <SidebarMenuSubButton>Users</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                             <SidebarMenuSubItem>
-                                <Link href="/admin/employees" passHref>
-                                    <SidebarMenuSubButton>Employees</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                             <SidebarMenuSubItem>
-                                <Link href="/admin/coordinators" passHref>
-                                    <SidebarMenuSubButton>Coordinators</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </Collapsible>
+                    <SidebarMenuItem>
+                        <Link href="/admin/coordinators" passHref>
+                            <SidebarMenuButton tooltip="Employees/Coordinators">
+                                <Users />
+                                Employees
+                            </SidebarMenuButton>
+                        </Link>
                     </SidebarMenuItem>
-                    <SidebarMenuItem asChild>
-                      <Collapsible>
-                        <SidebarMenuButton asChild>
-                           <CollapsibleTrigger className="w-full">
-                            <ClipboardList />
-                              Tasks & Reports
-                            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-                          </CollapsibleTrigger>
-                        </SidebarMenuButton>
-                        <CollapsibleContent asChild>
-                          <SidebarMenuSub>
-                              <SidebarMenuSubItem>
-                                <Link href="/admin/tasks" passHref>
-                                    <SidebarMenuSubButton>Tasks</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                             <SidebarMenuSubItem>
-                                <Link href="/admin/reports" passHref>
-                                    <SidebarMenuSubButton>Daily Reports</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </Collapsible>
+                    <SidebarMenuItem>
+                        <Link href="/admin/users" passHref>
+                            <SidebarMenuButton tooltip="Users">
+                                <UserPlus />
+                                Users
+                            </SidebarMenuButton>
+                        </Link>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
                         <SidebarMenuButton onClick={() => auth.signOut()}>

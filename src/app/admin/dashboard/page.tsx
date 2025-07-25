@@ -62,6 +62,9 @@ export default function AdminDashboard() {
   const [shippingCharge, setShippingCharge] = useState('');
   const [loadingShipping, setLoadingShipping] = useState(false);
 
+  const [minCartValue, setMinCartValue] = useState('');
+  const [loadingMinCart, setLoadingMinCart] = useState(false);
+
   const [fees, setFees] = useState<Fee[]>([]);
   const [loadingFees, setLoadingFees] = useState(true);
   const [newFeeName, setNewFeeName] = useState('');
@@ -111,10 +114,14 @@ export default function AdminDashboard() {
         const recentProductsSnapshot = await getDocs(recentProductsQuery);
         setRecentProducts(recentProductsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product)));
 
-        // --- Shipping Charge ---
+        // --- Settings ---
         const shippingDoc = await getDoc(doc(db, 'settings', 'shipping'));
         if (shippingDoc.exists()) {
           setShippingCharge(shippingDoc.data().charge.toString());
+        }
+        const minCartDoc = await getDoc(doc(db, 'settings', 'minCartValue'));
+        if (minCartDoc.exists()) {
+            setMinCartValue(minCartDoc.data().value.toString());
         }
         
       } catch (error) {
@@ -169,6 +176,19 @@ export default function AdminDashboard() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not save shipping charge.' });
       } finally {
         setLoadingShipping(false);
+      }
+  };
+
+   const handleSaveMinCart = async () => {
+      setLoadingMinCart(true);
+      try {
+        await setDoc(doc(db, 'settings', 'minCartValue'), { value: Number(minCartValue) });
+        toast({ title: 'Success', description: 'Minimum cart value updated successfully.' });
+      } catch (error) {
+        console.error("Error saving min cart value:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not save minimum cart value.' });
+      } finally {
+        setLoadingMinCart(false);
       }
   };
 
@@ -276,7 +296,7 @@ export default function AdminDashboard() {
             </Link>
          </div>
       </div>
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mb-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
@@ -321,31 +341,31 @@ export default function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Set Shipping Charge</CardTitle>
-            <Ship className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Minimum Cart Value</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
               <div className="flex items-center gap-2">
                 <IndianRupee className="h-4 w-4 text-muted-foreground" />
                 <Input 
                     type="number" 
-                    value={shippingCharge} 
-                    onChange={(e) => setShippingCharge(e.target.value)}
-                    placeholder="e.g. 50"
-                    disabled={loadingShipping}
+                    value={minCartValue} 
+                    onChange={(e) => setMinCartValue(e.target.value)}
+                    placeholder="e.g. 500"
+                    disabled={loadingMinCart}
                 />
               </div>
-               <p className="text-xs text-muted-foreground mt-1">Set a global shipping fee for all orders.</p>
+               <p className="text-xs text-muted-foreground mt-1">Set a minimum subtotal for checkout.</p>
           </CardContent>
           <CardFooter>
-            <Button size="sm" onClick={handleSaveShipping} disabled={loadingShipping}>
-                {loadingShipping ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
-                Save Charge
+            <Button size="sm" onClick={handleSaveMinCart} disabled={loadingMinCart}>
+                {loadingMinCart ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                Save Value
             </Button>
           </CardFooter>
         </Card>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -387,6 +407,31 @@ export default function AdminDashboard() {
               </>
             )}
           </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Set Shipping Charge</CardTitle>
+            <Ship className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+              <div className="flex items-center gap-2">
+                <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                <Input 
+                    type="number" 
+                    value={shippingCharge} 
+                    onChange={(e) => setShippingCharge(e.target.value)}
+                    placeholder="e.g. 50"
+                    disabled={loadingShipping}
+                />
+              </div>
+               <p className="text-xs text-muted-foreground mt-1">Set a global shipping fee for all orders.</p>
+          </CardContent>
+          <CardFooter>
+            <Button size="sm" onClick={handleSaveShipping} disabled={loadingShipping}>
+                {loadingShipping ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                Save Charge
+            </Button>
+          </CardFooter>
         </Card>
       </div>
 
@@ -532,9 +577,11 @@ export default function AdminDashboard() {
                                                 </DialogDescription>
                                             </DialogHeader>
                                             <div className="py-4 space-y-4">
-                                                 <Button className="w-full" onClick={() => handleUpdateStatus(order.id, 'Accepted')}>
-                                                    <PackageCheck className="mr-2 h-4 w-4"/> Move to Shipping
-                                                 </Button>
+                                                 <DialogClose asChild>
+                                                    <Button className="w-full" onClick={() => handleUpdateStatus(order.id, 'Accepted')}>
+                                                        <PackageCheck className="mr-2 h-4 w-4"/> Confirm & Move to Shipping
+                                                    </Button>
+                                                 </DialogClose>
                                                 <Button variant="outline" className="w-full" onClick={() => handleSendConfirmationEmail(order)}>
                                                     <Mail className="mr-2 h-4 w-4"/> Send Confirmation Email
                                                 </Button>

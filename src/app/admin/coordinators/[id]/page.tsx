@@ -1,20 +1,24 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { db, createSecondaryApp } from '@/lib/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import Image from 'next/image';
-import { sendNotificationEmail } from '@/ai/flows/send-email-flow';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { deleteApp } from 'firebase/app';
+
 
 interface CoordinatorApplication {
   id: string;
@@ -38,13 +42,11 @@ interface CoordinatorApplication {
   state: string;
   aadharNo: string;
   panNo: string;
-  referenceDetails: string;
-  referenceMobile: string;
   computerKnowledge: string;
   experience: string;
   prevJob: string;
   languages: string[];
-  positionType: string;
+  positionType: 'district' | 'block' | 'panchayat';
   preferredLocation: string;
   whyJoin: string;
   bankName: string;
@@ -70,6 +72,12 @@ export default function CoordinatorProfilePage() {
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  // States for approval dialog
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [domain, setDomain] = useState('');
+
   useEffect(() => {
     if (!id) return;
 
@@ -79,7 +87,15 @@ export default function CoordinatorProfilePage() {
         const docRef = doc(db, 'coordinator-applications', id as string);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setApplication({ id: docSnap.id, ...docSnap.data() } as CoordinatorApplication);
+          const appData = { id: docSnap.id, ...docSnap.data() } as CoordinatorApplication;
+          setApplication(appData);
+          // Set default domain based on position type
+          const positionToDomain = {
+              district: '@distvanu.in',
+              block: '@blckvanu.in',
+              panchayat: '@panvanu.in'
+          };
+          setDomain(positionToDomain[appData.positionType] || '@panvanu.in');
         } else {
           toast({ variant: 'destructive', title: 'Application not found' });
           router.push('/admin/coordinators');
@@ -95,7 +111,7 @@ export default function CoordinatorProfilePage() {
     fetchApplication();
   }, [id, router, toast]);
   
-  const handleStatusUpdate = async (newStatus: 'Approved' | 'Rejected') => {
+  const handleStatusUpdate = async (newStatus: 'Rejected') => {
       if (!application) return;
       setIsUpdating(true);
       try {
@@ -103,27 +119,69 @@ export default function CoordinatorProfilePage() {
         await updateDoc(docRef, { status: newStatus });
         setApplication(prev => prev ? {...prev, status: newStatus} : null);
         toast({ title: 'Status Updated', description: `Application has been ${newStatus.toLowerCase()}.` });
-
-        if (newStatus === 'Approved') {
-            await sendNotificationEmail({
-                to: application.email,
-                subject: "Congratulations! Your Coordinator Application has been Approved",
-                text: `Dear ${application.fullName},\n\nCongratulations! We are pleased to inform you that your application for the ${application.positionType} Coordinator role at Vanu Organic has been approved.\n\nPlease complete your employee registration by visiting this link: https://vanuorganic.com/employee-signup\n\nWelcome to the team!\n\nVanu Organic Pvt Ltd`,
-                html: `<p>Dear ${application.fullName},</p>
-                       <p>Congratulations! We are pleased to inform you that your application for the <strong>${application.positionType} Coordinator</strong> role at Vanu Organic has been approved.</p>
-                       <p>To get started, please complete your employee registration by clicking the link below:</p>
-                       <p><a href="https://vanuorganic.com/employee-signup">Create Your Employee Account</a></p>
-                       <p>Welcome to the team!</p>
-                       <p>Best regards,<br/><strong>Vanu Organic Pvt Ltd</strong></p>`
-            });
-            toast({ title: 'Approval Email Sent', description: 'The applicant has been notified.' });
-        }
-
       } catch (error) {
           toast({ variant: 'destructive', title: 'Update failed' });
       } finally {
           setIsUpdating(false);
       }
+  }
+
+  const handleApproveAndCreateEmployee = async () => {
+    if (!application || !username || !password || !domain) {
+        toast({ variant: 'destructive', title: 'Missing fields', description: 'Please provide a username and password.' });
+        return;
+    }
+
+    setIsUpdating(true);
+    let tempApp;
+    
+    try {
+        const loginEmail = `${username}${domain}`;
+        
+        // Use a temporary app instance to create user without logging in the admin
+        const { tempApp: app, tempAuth } = createSecondaryApp();
+        tempApp = app;
+
+        // 1. Create Auth user in Firebase
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, loginEmail, password);
+        const authUid = userCredential.user.uid;
+
+        // 2. Prepare data for 'employees' collection
+        const newEmployeeData = {
+            authUid,
+            name: application.fullName,
+            email: loginEmail, // The new system email for login
+            contactEmail: application.email, // The original personal email
+            phone: application.mobile,
+            role: application.positionType,
+            status: 'Active',
+            createdAt: serverTimestamp(),
+            applicationId: application.id,
+            ...application // Copy all other application details
+        };
+        delete (newEmployeeData as any).id;
+
+        // 3. Use a batch write to ensure atomicity
+        const batch = writeBatch(db);
+        const newEmployeeRef = doc(collection(db, 'employees'));
+        batch.set(newEmployeeRef, newEmployeeData);
+        
+        const applicationRef = doc(db, 'coordinator-applications', application.id);
+        batch.update(applicationRef, { status: 'Approved' });
+
+        await batch.commit();
+
+        toast({ title: 'Employee Created!', description: `${application.fullName} is now an employee.` });
+        setIsApprovalDialogOpen(false);
+        setApplication(prev => prev ? { ...prev, status: 'Approved' } : null);
+
+    } catch (error: any) {
+        console.error("Approval error:", error);
+        toast({ variant: 'destructive', title: 'Approval Failed', description: error.message });
+    } finally {
+        if (tempApp) await deleteApp(tempApp);
+        setIsUpdating(false);
+    }
   }
   
   const getStatusBadgeVariant = (status: string) => {
@@ -168,10 +226,57 @@ export default function CoordinatorProfilePage() {
              </div>
           </div>
           <div className="sm:ml-auto mt-4 sm:mt-0 flex gap-2">
-              <Button onClick={() => handleStatusUpdate('Approved')} disabled={isUpdating || application.status === 'Approved'}>
-                  {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Approve
-              </Button>
-              <Button variant="destructive" onClick={() => handleStatusUpdate('Rejected')} disabled={isUpdating || application.status === 'Rejected'}>
+              <Dialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button disabled={isUpdating || application.status !== 'Received'}>
+                        <Check className="mr-2 h-4 w-4"/>Approve
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create Employee Account</DialogTitle>
+                        <DialogDescription>
+                            Set a username and temporary password for {application.fullName}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid items-center gap-2">
+                            <Label htmlFor="username">Login Username</Label>
+                            <div className="flex items-center">
+                                <Input
+                                    id="username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                                    className="rounded-r-none"
+                                    placeholder="e.g., rishavkumar"
+                                />
+                                <Select value={domain} onValueChange={setDomain}>
+                                    <SelectTrigger className="w-[150px] rounded-l-none">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="@distvanu.in">@distvanu.in</SelectItem>
+                                        <SelectItem value="@blckvanu.in">@blckvanu.in</SelectItem>
+                                        <SelectItem value="@panvanu.in">@panvanu.in</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="grid items-center gap-2">
+                            <Label htmlFor="password">Temporary Password</Label>
+                            <Input id="password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsApprovalDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={handleApproveAndCreateEmployee} disabled={isUpdating}>
+                            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Approve & Create
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button variant="destructive" onClick={() => handleStatusUpdate('Rejected')} disabled={isUpdating || application.status !== 'Received'}>
                   {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Reject
               </Button>
           </div>
@@ -210,8 +315,6 @@ export default function CoordinatorProfilePage() {
                 <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                     <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Aadhar No.</span><span className="font-medium">{application.aadharNo}</span></div>
                     <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">PAN No.</span><span className="font-medium">{application.panNo}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Reference Name</span><span className="font-medium">{application.referenceDetails}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Reference Mobile</span><span className="font-medium">{application.referenceMobile}</span></div>
                 </CardContent>
             </Card>
             <Card>

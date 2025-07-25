@@ -7,11 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { Loader2, LogOut, LayoutDashboard, ShoppingBag, ListOrdered, ChevronDown, BarChart, Landmark } from 'lucide-react';
+import { Loader2, LogOut, LayoutDashboard, Landmark, Users, ClipboardList, PlusCircle } from 'lucide-react';
 import { Logo } from '@/components/logo';
-import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider } from '@/components/ui/sidebar';
 import { AdminHeader } from '@/components/admin-header';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
 export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
@@ -36,7 +35,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
           return; 
       }
 
-      const q = query(collection(db, 'employees'), where('email', '==', user.email), limit(1));
+      const q = query(collection(db, 'employees'), where('authUid', '==', user.uid));
       const employeeSnapshot = await getDocs(q);
 
       if (employeeSnapshot.empty) {
@@ -80,77 +79,29 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <Link href="/employee/recap" passHref>
-                            <SidebarMenuButton tooltip="Monthly Recap">
-                                <BarChart />
-                                Monthly Recap
+                     <SidebarMenuItem>
+                        <Link href="/employee/create-kisan-card" passHref>
+                            <SidebarMenuButton tooltip="Create Kisan Jaivik Card">
+                                <PlusCircle />
+                                Create Kisan Card
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
                         <Link href="/employee/kisan-jaivik-card" passHref>
-                            <SidebarMenuButton tooltip="Kisan Jaivik Card Applications">
-                                <Landmark />
-                                Kisan Jaivik Card
+                            <SidebarMenuButton tooltip="View Kisan Jaivik Card Applications">
+                                <ClipboardList />
+                                View Card Applications
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
-                    
-                    <SidebarMenuItem asChild>
-                        <Collapsible>
-                        <SidebarMenuButton asChild>
-                            <CollapsibleTrigger className="w-full">
-                                <ListOrdered />
-                                Order Management
-                                <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-                            </CollapsibleTrigger>
-                        </SidebarMenuButton>
-                        <CollapsibleContent asChild>
-                            <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                                <Link href="/employee/orders" passHref>
-                                <SidebarMenuSubButton>All Orders</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                            <SidebarMenuSubItem>
-                                <Link href="/employee/shipping" passHref>
-                                <SidebarMenuSubButton>Shipping</SidebarMenuSubButton>
-                                </Link>
-                            </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                        </CollapsibleContent>
-                        </Collapsible>
-                    </SidebarMenuItem>
-                     <SidebarMenuItem asChild>
-                      <Collapsible>
-                        <SidebarMenuButton asChild>
-                           <CollapsibleTrigger className="w-full">
-                                <ShoppingBag />
-                                Product Management
-                                <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-                          </CollapsibleTrigger>
-                        </SidebarMenuButton>
-                        <CollapsibleContent asChild>
-                          <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                              <Link href="/employee/products" passHref>
-                                <SidebarMenuSubButton>All Products</SidebarMenuSubButton>
-                              </Link>
-                            </SidebarMenuSubItem>
-                            <SidebarMenuSubItem>
-                              <Link href="/employee/add-product" passHref>
-                                <SidebarMenuSubButton>Add New Product</SidebarMenuSubButton>
-                              </Link>
-                            </SidebarMenuSubItem>
-                             <SidebarMenuSubItem>
-                              <Link href="/employee/categories" passHref>
-                                <SidebarMenuSubButton>Categories</SidebarMenuSubButton>
-                              </Link>
-                            </SidebarMenuSubItem>
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </Collapsible>
+                     <SidebarMenuItem>
+                        <Link href="/admin/coordinators" passHref>
+                            <SidebarMenuButton tooltip="Coordinators">
+                                <Users />
+                                Coordinators
+                            </SidebarMenuButton>
+                        </Link>
                     </SidebarMenuItem>
 
                     <SidebarMenuItem>

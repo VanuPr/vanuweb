@@ -2,9 +2,8 @@
 "use client"
 
 import { useState } from "react";
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -16,6 +15,12 @@ import { Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { indianStates } from "@/lib/indian-states";
 import { useRouter } from "next/navigation";
+
+declare global {
+    interface Window {
+        Razorpay: any;
+    }
+}
 
 export default function KisanJaivikCardPage() {
     const { toast } = useToast();
@@ -76,33 +81,58 @@ export default function KisanJaivikCardPage() {
         setIsLoading(true);
 
         try {
+            // Step 1: Save application data to Firestore with 'payment_pending' status
+            const docRef = await addDoc(collection(db, "kisan-jaivik-card-applications"), {
+                ...formData,
+                status: 'payment_pending',
+                submittedAt: serverTimestamp()
+            });
+            const applicationId = docRef.id;
+
+            // Step 2: Create Razorpay order
             const res = await fetch('/api/razorpay', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ amount: 65 }), // Amount in Rupees
             });
 
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'Failed to create Razorpay order');
+                throw new Error('Failed to create Razorpay order');
             }
 
-            const { order } = await res.json();
+            const { order: razorpayOrder } = await res.json();
             
             const options = {
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-                amount: order.amount,
-                currency: order.currency,
+                amount: razorpayOrder.amount,
+                currency: "INR",
                 name: "Vanu Organic Pvt Ltd",
                 description: "Kisan Jaivik Card Application Fee",
                 image: "/logo.png",
-                order_id: order.id,
+                order_id: razorpayOrder.id,
                 handler: async function (response: any) {
-                    const docId = await saveApplicationToFirestore(response.razorpay_payment_id);
-                    if (docId) {
-                       router.push(`/application-confirmation?id=${docId}`);
+                    const data = {
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature,
+                    };
+                    
+                    const verifyUrl = `/api/razorpay/verify?applicationId=${applicationId}&type=kisan-card`;
+
+                    const result = await fetch(verifyUrl, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    });
+                    
+                    if (result.ok && result.url) {
+                        router.push(result.url);
+                    } else {
+                         const errorResult = await result.json();
+                         toast({ variant: 'destructive', title: 'Payment Verification Failed', description: errorResult.error || 'Please contact support.'});
+                         setIsLoading(false);
                     }
                 },
                 prefill: {
@@ -110,66 +140,27 @@ export default function KisanJaivikCardPage() {
                     contact: formData.mobile,
                 },
                 theme: {
-                    color: "#3c6255"
+                    color: "#336633"
                 }
             };
             
-            const rzp = new (window as any).Razorpay(options);
-            rzp.open();
+            const rzp1 = new window.Razorpay(options);
+            rzp1.on('payment.failed', function (response: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Payment Failed",
+                    description: response.error.description,
+                });
+                updateDoc(doc(db, "kisan-jaivik-card-applications", applicationId), { status: 'payment_failed' });
+                setIsLoading(false);
+            });
+            rzp1.open();
 
         } catch (error: any) {
              toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate payment. Please try again.' });
-        } finally {
              setIsLoading(false);
         }
     };
-    
-    const uploadFile = async (file: File, applicationId: string, fileType: string): Promise<string> => {
-        const storageRef = ref(storage, `kisan-jaivik-card-applications/${applicationId}/${fileType}-${file.name}`);
-        const uploadResult = await uploadBytes(storageRef, file);
-        return getDownloadURL(uploadResult.ref);
-    };
-
-    const saveApplicationToFirestore = async (paymentId: string): Promise<string | null> => {
-        try {
-            // Create doc first to get an ID
-            const docRef = await addDoc(collection(db, "kisan-jaivik-card-applications"), {
-                ...formData,
-                paymentId,
-                status: 'Pending',
-                submittedAt: serverTimestamp()
-            });
-            
-            // Upload files and get URLs
-            const aadharUrl = files.aadharFile ? await uploadFile(files.aadharFile, docRef.id, 'aadhar') : '';
-            const panUrl = files.panFile ? await uploadFile(files.panFile, docRef.id, 'pan') : '';
-
-            // Update doc with file URLs
-            await updateDoc(docRef, { aadharUrl, panUrl });
-            
-            toast({ title: 'Application Submitted', description: 'Your application has been received successfully.'});
-            
-            // Reset form
-            setFormData({
-                name: '', fatherName: '', dob: '', aadharNo: '', panNo: '', mobile: '',
-                village: '', panchayat: '', block: '', district: '', pinCode: '',
-                state: ''
-            });
-            setFiles({ aadharFile: null, panFile: null });
-            const aadharInput = document.getElementById('aadharFile') as HTMLInputElement;
-            const panInput = document.getElementById('panFile') as HTMLInputElement;
-            if(aadharInput) aadharInput.value = '';
-            if(panInput) panInput.value = '';
-
-            return docRef.id;
-
-        } catch (error) {
-            console.error("Error submitting application: ", error);
-            toast({ variant: 'destructive', title: 'Submission Failed', description: 'There was an error saving your application after payment.'});
-            return null;
-        }
-    }
-
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -12,15 +11,16 @@ import { MoreHorizontal, Loader2, Check, X, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface CoordinatorApplication {
   id: string;
   fullName: string;
   mobile: string;
   district: string;
-  block: string;
+  blockName: string;
   panchayat: string;
-  status: 'Received' | 'Approved' | 'Rejected';
+  status: 'Received' | 'Approved' | 'Rejected' | 'payment_pending';
   submittedAt: Timestamp;
 }
 
@@ -34,11 +34,8 @@ export default function CoordinatorApplicationsPage() {
       try {
         const q = query(collection(db, 'coordinator-applications'), orderBy('submittedAt', 'desc'));
         const querySnapshot = await getDocs(q);
-        const appsData = querySnapshot.docs.map(doc => ({ 
-            id: doc.id, 
-            ...doc.data() 
-        } as CoordinatorApplication));
-        setApplications(appsData);
+        const allApps = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoordinatorApplication));
+        setApplications(allApps);
       } catch (error) {
         console.error("Error fetching applications: ", error);
         toast({ variant: 'destructive', title: 'Failed to fetch applications.' });
@@ -49,27 +46,88 @@ export default function CoordinatorApplicationsPage() {
 
   useEffect(() => {
     fetchApplications();
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
-  const handleStatusUpdate = async (id: string, newStatus: 'Approved' | 'Rejected') => {
+  const handleRejectStatus = async (id: string) => {
       try {
           const docRef = doc(db, 'coordinator-applications', id);
-          await updateDoc(docRef, { status: newStatus });
+          await updateDoc(docRef, { status: 'Rejected' });
           toast({ title: 'Status updated successfully' });
           fetchApplications(); // Refresh list
       } catch (error) {
           toast({ variant: 'destructive', title: 'Failed to update status'});
       }
   }
+  
+  const pendingApplications = applications.filter(app => app.status === 'Received' || app.status === 'payment_pending');
+  const approvedApplications = applications.filter(app => app.status === 'Approved');
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'Received': return 'default';
       case 'Approved': return 'secondary';
       case 'Rejected': return 'destructive';
+      case 'payment_pending': return 'outline';
       default: return 'outline';
     }
   };
+
+  const ApplicationTable = ({ applications }: { applications: CoordinatorApplication[] }) => (
+     <Table>
+        <TableHeader>
+            <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+        </TableHeader>
+        <TableBody>
+            {applications.map((app) => (
+            <TableRow key={app.id}>
+                <TableCell className="font-medium">{app.fullName}</TableCell>
+                <TableCell>{app.mobile}</TableCell>
+                <TableCell>{`${app.panchayat}, ${app.blockName}, ${app.district}`}</TableCell>
+                <TableCell>{app.submittedAt?.toDate().toLocaleDateString() || 'N/A'}</TableCell>
+                <TableCell>
+                <Badge variant={getStatusBadgeVariant(app.status)}>{app.status}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                        <Link href={`/admin/coordinators/${app.id}`}>
+                            <Eye className="mr-2 h-4 w-4" /> View Details
+                        </Link>
+                    </DropdownMenuItem>
+                    {app.status === 'Received' && (
+                        <>
+                        <DropdownMenuItem asChild>
+                           <Link href={`/admin/coordinators/${app.id}`}>
+                                <Check className="mr-2 h-4 w-4" /> Approve
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleRejectStatus(app.id)}>
+                            <X className="mr-2 h-4 w-4" /> Reject
+                        </DropdownMenuItem>
+                        </>
+                    )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                </TableCell>
+            </TableRow>
+            ))}
+        </TableBody>
+    </Table>
+  );
 
   return (
     <div>
@@ -78,65 +136,38 @@ export default function CoordinatorApplicationsPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>All Applications</CardTitle>
+          <CardTitle>Application Management</CardTitle>
           <CardDescription>Review and manage coordinator applications.</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-             <div className="flex justify-center items-center h-48">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : applications.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10">No applications found.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {applications.map((app) => (
-                  <TableRow key={app.id}>
-                    <TableCell className="font-medium">{app.fullName}</TableCell>
-                    <TableCell>{app.mobile}</TableCell>
-                    <TableCell>{`${app.panchayat}, ${app.block}, ${app.district}`}</TableCell>
-                     <TableCell>{app.submittedAt.toDate().toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <Badge variant={getStatusBadgeVariant(app.status)}>{app.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/admin/coordinators/${app.id}`}>
-                                <Eye className="mr-2 h-4 w-4" /> View Details
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusUpdate(app.id, 'Approved')}>
-                            <Check className="mr-2 h-4 w-4" /> Approve
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleStatusUpdate(app.id, 'Rejected')}>
-                             <X className="mr-2 h-4 w-4" /> Reject
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+            <Tabs defaultValue="pending">
+                <TabsList>
+                    <TabsTrigger value="pending">Pending ({pendingApplications.length})</TabsTrigger>
+                    <TabsTrigger value="approved">Approved ({approvedApplications.length})</TabsTrigger>
+                </TabsList>
+                <TabsContent value="pending" className="mt-4">
+                     {loading ? (
+                        <div className="flex justify-center items-center h-48">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                     ) : pendingApplications.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-10">No pending applications found.</p>
+                     ) : (
+                        <ApplicationTable applications={pendingApplications} />
+                     )}
+                </TabsContent>
+                <TabsContent value="approved" className="mt-4">
+                     {loading ? (
+                        <div className="flex justify-center items-center h-48">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                     ) : approvedApplications.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-10">No approved applications found.</p>
+                     ) : (
+                        <ApplicationTable applications={approvedApplications} />
+                     )}
+                </TabsContent>
+            </Tabs>
         </CardContent>
       </Card>
     </div>

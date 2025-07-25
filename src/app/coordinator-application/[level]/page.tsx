@@ -1,7 +1,6 @@
-
 "use client"
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -16,28 +15,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { db, storage } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, getDocs, updateDoc, doc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { indianStates } from "@/lib/indian-states";
-import { useParams, useRouter } from "next/navigation";
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useRouter } from "next/navigation";
+import locationData from '@/lib/india-locations.json';
 
-
-interface LocationData {
-    id: string; // State Name
-    districts: {
-        [key: string]: string[] // { "DistrictName": ["Block1", "Block2"] }
-    }
-}
 
 export default function CoordinatorApplicationFormPage() {
     const { toast } = useToast();
-    const params = useParams();
     const router = useRouter();
-    const level = params.level as string;
 
     const [isLoading, setIsLoading] = useState(false);
-    const [locations, setLocations] = useState<LocationData[]>([]);
-    const [loadingLocations, setLoadingLocations] = useState(true);
     const formRef = useRef<HTMLFormElement>(null);
     const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
     const [termsAgreed, setTermsAgreed] = useState(false);
@@ -80,7 +68,7 @@ export default function CoordinatorApplicationFormPage() {
         experience: '',
         prevJob: '',
         languages: [] as string[],
-        positionType: level || '',
+        positionType: '',
         preferredLocation: '',
         whyJoin: '',
         declaration1: false,
@@ -98,57 +86,24 @@ export default function CoordinatorApplicationFormPage() {
         passbook: null as File | null,
     });
 
-    useEffect(() => {
-        if (level && formData.positionType !== level) {
-            setFormData(prev => ({...prev, positionType: level}));
-        }
-    }, [level, formData.positionType]);
-
-    useEffect(() => {
-        const fetchLocations = async () => {
-            setLoadingLocations(true);
-            try {
-                const querySnapshot = await getDocs(collection(db, "locations"));
-                const locationsData = querySnapshot.docs.map(doc => ({ 
-                    id: doc.id, 
-                    districts: doc.data().districts || {}
-                } as LocationData));
-                setLocations(locationsData.sort((a,b) => a.id.localeCompare(b.id)));
-            } catch (error) {
-                toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch location data.' });
-            } finally {
-                setLoadingLocations(false);
-            }
-        };
-        fetchLocations();
-    }, [toast]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target;
-        setFormData(prev => ({ ...prev, [id]: value }));
+        setFormData(prev => ({ ...prev, [id]: value.toUpperCase() }));
     };
 
     const handleSelectChange = (name: keyof typeof formData, value: string) => {
         setFormData(prev => ({ ...prev, [name]: value }));
         if (name === 'state') {
-            setFormData(prev => ({...prev, district: '', blockName: ''}));
-        }
-        if (name === 'district') {
-            setFormData(prev => ({...prev, blockName: ''}));
+            setFormData(prev => ({...prev, district: ''}));
         }
     };
     
     const availableDistricts = useMemo(() => {
-        if (!formData.state || locations.length === 0) return [];
-        const selected = locations.find(l => l.id === formData.state);
-        return selected ? Object.keys(selected.districts).sort() : [];
-    }, [formData.state, locations]);
-
-    const availableBlocks = useMemo(() => {
-        if (!formData.state || !formData.district || locations.length === 0) return [];
-        const selectedState = locations.find(l => l.id === formData.state);
-        return selectedState?.districts[formData.district]?.sort() || [];
-    }, [formData.state, formData.district, locations]);
+        if (!formData.state) return [];
+        const selected = locationData.states.find(s => s.state === formData.state);
+        return selected ? selected.districts.sort() : [];
+    }, [formData.state]);
     
     const handleRadioChange = (name: keyof typeof formData, value: string) => {
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -177,7 +132,6 @@ export default function CoordinatorApplicationFormPage() {
     const handleContinue = (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Basic form validation check
         const form = formRef.current;
         if (form && !form.checkValidity()) {
             form.reportValidity();
@@ -193,6 +147,13 @@ export default function CoordinatorApplicationFormPage() {
         setIsTermsModalOpen(true);
     };
 
+    const uploadFile = async (file: File | null, applicationId: string, fileType: string): Promise<string | undefined> => {
+        if (!file) return undefined;
+        const storageRef = ref(storage, `coordinator-applications/${applicationId}/${fileType}-${file.name}`);
+        const uploadResult = await uploadBytes(storageRef, file);
+        return getDownloadURL(uploadResult.ref);
+    };
+
 
     const handleFinalSubmit = async () => {
         if (!termsAgreed) {
@@ -202,6 +163,32 @@ export default function CoordinatorApplicationFormPage() {
         setIsLoading(true);
         
         try {
+            // A temporary ID for storage path before we get the real one
+            const tempApplicationId = `temp-${Date.now()}`;
+
+            // Step 1: Upload all files concurrently
+            const [photoUrl, aadharUrl, panUrl, signatureUrl, passbookUrl] = await Promise.all([
+                uploadFile(files.photo, tempApplicationId, 'photo'),
+                uploadFile(files.aadhar, tempApplicationId, 'aadhar'),
+                uploadFile(files.pan, tempApplicationId, 'pan'),
+                uploadFile(files.signature, tempApplicationId, 'signature'),
+                uploadFile(files.passbook, tempApplicationId, 'passbook'),
+            ]);
+            
+            // Step 2: Save application data to Firestore with 'payment_pending' status and file URLs
+            const docRef = await addDoc(collection(db, "coordinator-applications"), {
+                ...formData,
+                photoUrl,
+                aadharUrl,
+                panUrl,
+                signatureUrl,
+                passbookUrl,
+                status: 'payment_pending',
+                submittedAt: serverTimestamp()
+            });
+            const applicationId = docRef.id;
+
+            // Step 3: Create Razorpay order
             const res = await fetch('/api/razorpay', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -211,81 +198,42 @@ export default function CoordinatorApplicationFormPage() {
 
             const { order } = await res.json();
             
-            const options = {
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-                amount: order.amount,
-                currency: order.currency,
+             // Step 4: Create a form to post to Razorpay
+            const razorpayForm = document.createElement('form');
+            razorpayForm.method = 'POST';
+            razorpayForm.action = `https://api.razorpay.com/v1/checkout/embedded`;
+
+            const fields = {
+                key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+                order_id: order.id,
                 name: "Vanu Organic Pvt Ltd",
                 description: "Coordinator Application Fee",
-                order_id: order.id,
-                handler: async (response: any) => {
-                    const docId = await saveApplicationToFirestore(response.razorpay_payment_id);
-                    if (docId) {
-                        router.push(`/application-confirmation?id=${docId}`);
-                    }
-                },
-                prefill: {
-                    name: formData.fullName,
-                    email: formData.email,
-                    contact: formData.mobile,
-                },
-                theme: { color: "#3c6255" }
+                image: "/logo.png",
+                'prefill[name]': formData.fullName,
+                'prefill[email]': formData.email,
+                'prefill[contact]': formData.mobile,
+                'callback_url': `${window.location.origin}/api/razorpay/verify?applicationId=${applicationId}&type=coordinator`,
+                'cancel_url': `${window.location.origin}/coordinator-application`
             };
 
-            const rzp = new (window as any).Razorpay(options);
-            rzp.open();
+            for (const key in fields) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = (fields as any)[key];
+                razorpayForm.appendChild(input);
+            }
+            
+            document.body.appendChild(razorpayForm);
+            razorpayForm.submit();
+
 
         } catch (error) {
             console.error("Error initiating payment: ", error);
             toast({ variant: "destructive", title: "Payment Failed", description: "Could not initiate payment. Please try again." });
-        } finally {
             setIsLoading(false);
         }
     }
-    
-    const uploadFile = async (file: File, applicationId: string, fileType: string): Promise<string> => {
-        const storageRef = ref(storage, `coordinator-applications/${applicationId}/${fileType}-${file.name}`);
-        const uploadResult = await uploadBytes(storageRef, file);
-        return getDownloadURL(uploadResult.ref);
-    };
-
-    const saveApplicationToFirestore = async (paymentId: string) => {
-         try {
-            // Create doc first to get an ID
-            const docRef = await addDoc(collection(db, "coordinator-applications"), {
-                ...formData,
-                paymentId,
-                status: 'Received',
-                submittedAt: serverTimestamp()
-            });
-
-            // Upload files and get URLs
-             const fileUploadPromises = Object.entries(files).map(([key, file]) => {
-                if (file) {
-                    return uploadFile(file, docRef.id, key).then(url => ({ [`${key}Url`]: url }));
-                }
-                return Promise.resolve({});
-            });
-
-            const uploadedFileUrls = await Promise.all(fileUploadPromises);
-            const urlsToUpdate = uploadedFileUrls.reduce((acc, urlObj) => ({ ...acc, ...urlObj }), {});
-            
-            // Update doc with file URLs
-            if (Object.keys(urlsToUpdate).length > 0) {
-                await updateDoc(docRef, urlsToUpdate);
-            }
-
-            toast({ title: 'Application Submitted', description: 'Your application has been received. We will get back to you shortly.' });
-            setIsTermsModalOpen(false);
-            return docRef.id;
-        } catch (error) {
-            console.error("Error submitting application: ", error);
-            toast({ variant: "destructive", title: "Submission Failed", description: "Could not save your application after payment." });
-            return null;
-        }
-    }
-    
-    const levelTitle = level ? `${level.charAt(0).toUpperCase() + level.slice(1)} Coordinator Application` : "Coordinator Application";
 
   return (
     <>
@@ -294,12 +242,38 @@ export default function CoordinatorApplicationFormPage() {
       <main className="flex-1 py-16 md:py-24">
         <div className="container mx-auto px-4 md:px-6">
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-headline font-bold tracking-tight text-foreground sm:text-5xl">{levelTitle}</h1>
+            <h1 className="text-4xl font-headline font-bold tracking-tight text-foreground sm:text-5xl">Coordinator Application</h1>
             <p className="mt-4 max-w-3xl mx-auto text-muted-foreground">Please fill the form in CAPITAL LETTERS only. Application Fee: ₹2550</p>
           </div>
           
           <form ref={formRef} onSubmit={handleContinue} className="max-w-4xl mx-auto space-y-8">
             
+             <Card>
+                <CardHeader><CardTitle>Position</CardTitle></CardHeader>
+                <CardContent>
+                     <RadioGroup onValueChange={(v) => handleRadioChange('positionType', v)} value={formData.positionType} className="grid md:grid-cols-3 gap-4" required>
+                        <div>
+                            <RadioGroupItem value="district" id="district" className="peer sr-only" />
+                            <Label htmlFor="district" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                District Coordinator
+                            </Label>
+                        </div>
+                         <div>
+                            <RadioGroupItem value="block" id="block" className="peer sr-only" />
+                            <Label htmlFor="block" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                Block Coordinator
+                            </Label>
+                        </div>
+                         <div>
+                            <RadioGroupItem value="panchayat" id="panchayat" className="peer sr-only" />
+                            <Label htmlFor="panchayat" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                Panchayat Coordinator
+                            </Label>
+                        </div>
+                    </RadioGroup>
+                </CardContent>
+            </Card>
+
             <Card>
                 <CardHeader><CardTitle>Personal Information</CardTitle></CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-6">
@@ -324,7 +298,7 @@ export default function CoordinatorApplicationFormPage() {
                         <Label htmlFor="state">State</Label>
                         <Select onValueChange={(v) => handleSelectChange('state', v)} value={formData.state} required>
                             <SelectTrigger><SelectValue placeholder="Select State" /></SelectTrigger>
-                            <SelectContent>{indianStates.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            <SelectContent>{locationData.states.map(s => <SelectItem key={s.state} value={s.state}>{s.state}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                      <div className="grid gap-2">
@@ -336,15 +310,7 @@ export default function CoordinatorApplicationFormPage() {
                              </SelectContent>
                         </Select>
                     </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="blockName">Block Name</Label>
-                        <Select onValueChange={(v) => handleSelectChange('blockName', v)} value={formData.blockName} required disabled={availableBlocks.length === 0}>
-                            <SelectTrigger><SelectValue placeholder="Select Block" /></SelectTrigger>
-                             <SelectContent>
-                                {availableBlocks.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <div className="grid gap-2"><Label htmlFor="blockName">Block Name</Label><Input id="blockName" value={formData.blockName} onChange={handleInputChange} required /></div>
                     <div className="grid gap-2"><Label htmlFor="panchayat">Panchayat Name</Label><Input id="panchayat" value={formData.panchayat} onChange={handleInputChange} required /></div>
                     <div className="grid gap-2"><Label htmlFor="pinCode">PIN Code</Label><Input id="pinCode" value={formData.pinCode} onChange={handleInputChange} required /></div>
                 </CardContent>
@@ -403,9 +369,9 @@ export default function CoordinatorApplicationFormPage() {
                 </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full text-lg py-6" disabled={isLoading || loadingLocations}>
-                {loadingLocations ? <Loader2 className="mr-2 h-6 w-6 animate-spin"/> : null}
-                {loadingLocations ? 'Loading Data...' : 'Proceed to Payment'}
+            <Button type="submit" className="w-full text-lg py-6" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin"/> : null}
+                {isLoading ? 'Processing...' : 'Proceed to Payment'}
             </Button>
           </form>
         </div>

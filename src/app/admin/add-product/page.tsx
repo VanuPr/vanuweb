@@ -152,9 +152,7 @@ export default function AddProductPage() {
                                 <Label htmlFor="category">Category</Label>
                                 <Select value={newProduct.category} onValueChange={(value) => setNewProduct({...newProduct, category: value})} disabled={isLoading || loadingCategories}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder={loadingCategories ? 'Loading...' : 'Select a category'}>
-                                          {categories.find(c => c.slug === newProduct.category)?.name}
-                                        </SelectValue>
+                                        <SelectValue placeholder={loadingCategories ? 'Loading...' : 'Select a category'} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {categories.map(cat => (

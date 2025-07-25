@@ -57,10 +57,8 @@ export default function EmployeeRecapPage() {
                 setTasks(tasksData);
 
                 // Fetch attendance
-                // Note: Current structure only allows for 1 attendance record. This is a simplified count.
-                // For a real app, you would have a sub-collection of daily attendance documents.
                 const attendanceRef = collection(db, 'employees', user.uid, 'attendance');
-                const attendanceQuery = query(attendanceRef, where('lastMarked', '>=', monthStart));
+                const attendanceQuery = query(attendanceRef, where('markedAt', '>=', monthStart));
                 const attendanceSnapshot = await getDocs(attendanceQuery);
                 setAttendanceCount(attendanceSnapshot.size);
 

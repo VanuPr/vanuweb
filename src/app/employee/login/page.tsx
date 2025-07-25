@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { Separator } from "@/components/ui/separator";
-import { Loader2 } from "lucide-react";
 
 export default function EmployeeLoginPage() {
   const router = useRouter();
@@ -80,7 +79,7 @@ export default function EmployeeLoginPage() {
         <Card className="w-full max-w-sm">
           <form onSubmit={handleSignIn}>
             <CardHeader>
-              <CardTitle className="text-2xl font-headline">Staff Login</CardTitle>
+              <CardTitle className="text-2xl font-headline">Employee/Admin Login</CardTitle>
               <CardDescription>Enter your official credentials to access your panel.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -89,7 +88,7 @@ export default function EmployeeLoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="username@...vanu.in" 
+                  placeholder="username@vanuemp.in" 
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -110,9 +109,21 @@ export default function EmployeeLoginPage() {
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
               <Button className="w-full" type="submit" disabled={isLoading}>
-                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                 {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
+              <div className="relative w-full">
+                  <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  </div>
+              </div>
+               <Link href="/employee-registration" className='w-full'>
+                <Button className="w-full" variant="outline">
+                    Apply for Employee Post
+                </Button>
+               </Link>
             </CardFooter>
           </form>
         </Card>
@@ -121,3 +132,5 @@ export default function EmployeeLoginPage() {
     </div>
   );
 }
+
+    

@@ -9,7 +9,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Minus, Plus, Heart, Share2, Leaf, Drumstick } from 'lucide-react';
+import { Loader2, Minus, Plus, Heart, Share2, Leaf, Drumstick, PackageX, ShoppingCart } from 'lucide-react';
 import Image from 'next/image';
 import { useCart } from '@/context/cart-context';
 import { useWishlist } from '@/context/wishlist-context';
@@ -31,6 +31,7 @@ interface Product {
   description: string;
   ingredients: string;
   productInfo: string;
+  stock?: number;
   productType: 'vegetarian' | 'non-vegetarian' | 'vegan' | 'uses_dead_animals';
 }
 
@@ -80,6 +81,7 @@ export default function ProductDetailPage() {
         mrp: product.mrp,
         image: product.image,
         quantity: quantity,
+        stock: product.stock
       };
       addToCart(cartProduct, quantity);
     }
@@ -143,6 +145,7 @@ export default function ProductDetailPage() {
     );
   }
   
+  const isOutOfStock = product.stock !== undefined && product.stock <= 0;
   const currentTypeInfo = productTypeInfo[product.productType || 'vegetarian'];
   const discount = product.mrp && product.price ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
   const isWishlisted = isInWishlist(product.id);
@@ -158,9 +161,14 @@ export default function ProductDetailPage() {
             <div className="flex flex-col gap-4">
               <div className="relative aspect-square w-full overflow-hidden rounded-lg border">
                 <Image src={mainImage} alt={product.name} layout="fill" objectFit="cover" className="transition-opacity duration-300" />
-                 {discount > 0 && (
+                 {discount > 0 && !isOutOfStock && (
                     <Badge variant="destructive" className="absolute top-3 left-3 text-base">
                         {discount}% OFF
+                    </Badge>
+                )}
+                 {isOutOfStock && (
+                    <Badge variant="secondary" className="absolute top-3 left-3 text-destructive border-destructive">
+                        Out of Stock
                     </Badge>
                 )}
               </div>
@@ -196,19 +204,21 @@ export default function ProductDetailPage() {
               <div className="flex items-center gap-4">
                 <span className="font-medium">{t.quantity}:</span>
                 <div className="flex items-center gap-2 rounded-md border">
-                    <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))}>
+                    <Button variant="ghost" size="icon" onClick={() => setQuantity(q => Math.max(1, q - 1))} disabled={isOutOfStock}>
                         <Minus className="h-4 w-4" />
                     </Button>
                     <span className="w-8 text-center font-semibold">{quantity}</span>
-                    <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)}>
+                    <Button variant="ghost" size="icon" onClick={() => setQuantity(q => q + 1)} disabled={isOutOfStock}>
                         <Plus className="h-4 w-4" />
                     </Button>
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Button size="lg" onClick={handleAddToCart}>{t.addToCart}</Button>
-                <Button size="lg" variant="outline">{t.buyNow}</Button>
+              <div className="grid sm:grid-cols-1 gap-4">
+                <Button size="lg" onClick={handleAddToCart} disabled={isOutOfStock}>
+                  {isOutOfStock ? <PackageX className="mr-2" /> : <ShoppingCart className="mr-2" />}
+                  {isOutOfStock ? "Out of Stock" : t.addToCart}
+                </Button>
               </div>
               
               <div className="flex items-center gap-2">

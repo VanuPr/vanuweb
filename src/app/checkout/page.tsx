@@ -15,17 +15,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Home } from 'lucide-react';
+import { Loader2, PlusCircle, Home, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Address } from '@/app/account/page';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AddressForm } from '@/components/address-form';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface Fee {
     name: string;
     value: number;
 }
+
+declare global {
+    interface Window {
+        Razorpay: any;
+    }
+}
+
 
 export default function CheckoutPage() {
   const { translations } = useLanguage();
@@ -40,6 +48,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [shipping, setShipping] = useState(0);
   const [additionalFees, setAdditionalFees] = useState<Fee[]>([]);
+  const [minCartValue, setMinCartValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
@@ -70,6 +79,12 @@ export default function CheckoutPage() {
             if (feesDoc.exists()) {
                 setAdditionalFees(feesDoc.data().charges || []);
             }
+
+             const minCartDoc = await getDoc(doc(db, 'settings', 'minCartValue'));
+            if (minCartDoc.exists()) {
+                setMinCartValue(minCartDoc.data().value || 0);
+            }
+
         } catch (error) {
             console.error("Error fetching settings:", error);
             setShipping(50); // Fallback
@@ -101,6 +116,7 @@ export default function CheckoutPage() {
   const totalFees = additionalFees.reduce((sum, fee) => sum + fee.value, 0);
   const total = subtotal + shipping + totalFees;
 
+  const isMinCartValueMet = subtotal >= minCartValue;
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +128,10 @@ export default function CheckoutPage() {
         toast({ variant: 'destructive', title: 'Your cart is empty' });
         return;
     }
+    if (!isMinCartValueMet) {
+        toast({ variant: 'destructive', title: `A minimum order value of ₹${minCartValue} is required.` });
+        return;
+    }
     
     setIsSubmitting(true);
     
@@ -121,32 +141,96 @@ export default function CheckoutPage() {
             customerName: `${selectedAddress.firstName} ${selectedAddress.lastName}`,
             email: user?.email,
             shippingAddress: selectedAddress,
-            items: cart.map(({ imageHover, aiHint, ...item }) => item), // Remove client-side only fields
+            items: cart.map(({ imageHover, aiHint, ...item }) => item),
             subtotal,
             shipping,
             fees: additionalFees,
             total,
-            status: 'Pending',
+            status: paymentMethod === 'cod' ? 'Pending' : 'payment_pending',
             paymentMethod,
             date: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, "orders"), orderData);
-        
-        // Also update stock
-        for (const item of cart) {
-            const productRef = doc(db, 'products', item.id);
-            const productSnap = await getDoc(productRef);
-            if (productSnap.exists()) {
-                const currentStock = productSnap.data().stock || 0;
-                const newStock = Math.max(0, currentStock - item.quantity);
-                await updateDoc(productRef, { stock: newStock });
+        const orderDocRef = await addDoc(collection(db, "orders"), orderData);
+
+        if (paymentMethod === 'cod') {
+            for (const item of cart) {
+                const productRef = doc(db, 'products', item.id);
+                const productSnap = await getDoc(productRef);
+                if (productSnap.exists()) {
+                    const currentStock = productSnap.data().stock || 0;
+                    const newStock = Math.max(0, currentStock - item.quantity);
+                    await updateDoc(productRef, { stock: newStock });
+                }
             }
+            clearCart();
+            toast({ title: 'Order Placed!', description: 'Thank you for your purchase.' });
+            router.push(`/order-confirmation?id=${orderDocRef.id}`);
+        } else {
+            const res = await fetch('/api/razorpay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: total }),
+            });
+            if (!res.ok) throw new Error('Failed to create Razorpay order');
+
+            const { order: razorpayOrder } = await res.json();
+            
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+                amount: razorpayOrder.amount,
+                currency: "INR",
+                name: "Vanu Organic Pvt Ltd",
+                description: `Order #${orderDocRef.id.slice(0, 7)}`,
+                order_id: razorpayOrder.id,
+                handler: async function (response: any) {
+                    const data = {
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature,
+                    };
+
+                    const verifyUrl = `/api/razorpay/verify?applicationId=${orderDocRef.id}&type=order`;
+
+                    const result = await fetch(verifyUrl, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    });
+
+                    // Redirect based on server response
+                    if (result.ok && result.url) {
+                        router.push(result.url);
+                    } else {
+                        const errorResult = await result.json();
+                        toast({ variant: 'destructive', title: 'Payment Verification Failed', description: errorResult.error || 'Please contact support.'});
+                        setIsSubmitting(false);
+                    }
+                },
+                prefill: {
+                    name: user?.displayName || selectedAddress.firstName,
+                    email: user?.email,
+                    contact: selectedAddress.phone,
+                },
+                theme: {
+                    color: "#336633"
+                }
+            };
+            
+            const rzp1 = new window.Razorpay(options);
+            rzp1.on('payment.failed', function (response: any) {
+                toast({
+                    variant: "destructive",
+                    title: "Payment Failed",
+                    description: response.error.description,
+                });
+                updateDoc(doc(db, "orders", orderDocRef.id), { status: 'payment_failed' });
+                setIsSubmitting(false);
+            });
+            rzp1.open();
         }
-        
-        clearCart();
-        toast({ title: 'Order Placed!', description: 'Thank you for your purchase.' });
-        router.push(`/order-confirmation?id=${docRef.id}`);
 
     } catch (error) {
         console.error("Error placing order:", error);
@@ -222,16 +306,16 @@ export default function CheckoutPage() {
                                     <CardTitle className="font-headline">{t.paymentTitle}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid gap-4">
+                                    <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <RadioGroupItem value="card" id="card" className="peer sr-only" disabled/>
-                                            <Label htmlFor="card" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary opacity-50 cursor-not-allowed">
-                                                {t.creditCard} (Coming Soon)
+                                            <RadioGroupItem value="card" id="card" className="peer sr-only" />
+                                            <Label htmlFor="card" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                                                {t.creditCard}
                                             </Label>
                                         </div>
                                         <div>
                                             <RadioGroupItem value="cod" id="cod" className="peer sr-only" />
-                                            <Label htmlFor="cod" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                                            <Label htmlFor="cod" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                                                 {t.cod}
                                             </Label>
                                         </div>
@@ -277,7 +361,15 @@ export default function CheckoutPage() {
                                 </div>
                             </CardContent>
                         </Card>
-                        <Button type="submit" className="w-full mt-6" disabled={isSubmitting || cart.length === 0 || !selectedAddress}>
+                         {!isMinCartValueMet && minCartValue > 0 && (
+                            <Alert variant="destructive" className="mt-4">
+                                <Info className="h-4 w-4" />
+                                <AlertDescription>
+                                   Minimum order value of ₹{minCartValue.toFixed(2)} is required to place an order.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                        <Button type="submit" className="w-full mt-6" disabled={isSubmitting || cart.length === 0 || !selectedAddress || !isMinCartValueMet}>
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                             {isSubmitting ? t.placingOrder : t.placeOrderButton}
                         </Button>

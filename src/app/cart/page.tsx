@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/context/cart-context";
-import { Trash2, Plus, Minus, Loader2 } from "lucide-react";
+import { Trash2, Plus, Minus, Loader2, Info } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Fee {
     name: string;
@@ -26,6 +27,7 @@ export default function CartPage() {
   const t = translations.cart;
   const [shipping, setShipping] = useState(0);
   const [additionalFees, setAdditionalFees] = useState<Fee[]>([]);
+  const [minCartValue, setMinCartValue] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,6 +42,11 @@ export default function CartPage() {
         const feesDoc = await getDoc(doc(db, 'settings', 'fees'));
         if (feesDoc.exists()) {
             setAdditionalFees(feesDoc.data().charges || []);
+        }
+
+        const minCartDoc = await getDoc(doc(db, 'settings', 'minCartValue'));
+        if (minCartDoc.exists()) {
+            setMinCartValue(minCartDoc.data().value || 0);
         }
 
       } catch (error) {
@@ -63,6 +70,8 @@ export default function CartPage() {
   const subtotal = cart.reduce((sum, item) => sum + (getPriceAsNumber(item.price) * item.quantity), 0);
   const totalFees = additionalFees.reduce((sum, fee) => sum + fee.value, 0);
   const total = subtotal + shipping + totalFees;
+
+  const isMinCartValueMet = subtotal >= minCartValue;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -150,9 +159,20 @@ export default function CartPage() {
                         </>
                     )}
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="flex flex-col gap-4">
+                    {!isMinCartValueMet && minCartValue > 0 && !loading && (
+                        <Alert variant="destructive">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>Minimum Order Value</AlertTitle>
+                            <AlertDescription>
+                                You need to add items worth at least ₹{minCartValue.toFixed(2)} to proceed.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <Link href="/checkout" className="w-full">
-                        <Button className="w-full" disabled={loading}>{t.proceedToCheckout}</Button>
+                        <Button className="w-full" disabled={loading || !isMinCartValueMet}>
+                            {t.proceedToCheckout}
+                        </Button>
                     </Link>
                   </CardFooter>
                 </Card>
