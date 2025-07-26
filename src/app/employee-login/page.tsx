@@ -113,6 +113,19 @@ export default function EmployeeLoginPage() {
                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                 {isLoading ? 'Signing In...' : 'Sign In'}
               </Button>
+               <div className="relative w-full">
+                  <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  </div>
+              </div>
+               <Link href="/employee-registration" className='w-full'>
+                <Button className="w-full" variant="outline">
+                    Apply for Employee Post
+                </Button>
+               </Link>
             </CardFooter>
           </form>
         </Card>

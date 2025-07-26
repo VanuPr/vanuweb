@@ -12,6 +12,7 @@ import { Loader2, Image as ImageIcon, Video } from "lucide-react";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface GalleryItem {
     id: string;
@@ -122,4 +123,3 @@ export default function GalleryPage() {
         </div>
     );
 }
-

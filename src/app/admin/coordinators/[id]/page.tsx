@@ -1,16 +1,17 @@
+
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, serverTimestamp, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
 import { db, createSecondaryApp } from '@/lib/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign, Users2, Landmark, CalendarDays, CheckSquare, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, getMonth, startOfMonth } from 'date-fns';
 import Image from 'next/image';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -18,7 +19,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { deleteApp } from 'firebase/app';
-
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart } from 'recharts';
 
 interface CoordinatorApplication {
   id: string;
@@ -60,7 +63,22 @@ interface CoordinatorApplication {
   panUrl?: string;
   signatureUrl?: string;
   passbookUrl?: string;
+  authUid?: string; // This will be set on approval
 }
+
+interface KisanCardApplication {
+    id: string;
+    name: string;
+    submittedAt: Timestamp;
+}
+
+interface RecruitedCoordinator {
+    id: string;
+    fullName: string;
+    positionType: 'district' | 'block' | 'panchayat';
+    status: 'Received' | 'Approved' | 'Rejected';
+}
+
 
 export default function CoordinatorProfilePage() {
   const params = useParams();
@@ -71,6 +89,11 @@ export default function CoordinatorProfilePage() {
   const [application, setApplication] = useState<CoordinatorApplication | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  const [recruitedCoordinators, setRecruitedCoordinators] = useState<RecruitedCoordinator[]>([]);
+  const [kisanCardsCreated, setKisanCardsCreated] = useState<KisanCardApplication[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [loadingExtraData, setLoadingExtraData] = useState(true);
 
   // States for approval dialog
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
@@ -89,6 +112,29 @@ export default function CoordinatorProfilePage() {
         if (docSnap.exists()) {
           const appData = { id: docSnap.id, ...docSnap.data() } as CoordinatorApplication;
           setApplication(appData);
+          
+          if (appData.status === 'Approved' && appData.authUid) {
+            setLoadingExtraData(true);
+            const thisMonthStart = startOfMonth(new Date());
+
+            // Fetch recruited coordinators
+            const recruitedQuery = query(collection(db, 'coordinator-applications'), where('uplineCoordinatorId', '==', appData.authUid));
+            const recruitedSnapshot = await getDocs(recruitedQuery);
+            setRecruitedCoordinators(recruitedSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as RecruitedCoordinator));
+
+            // Fetch kisan cards
+            const kisanCardsQuery = query(collection(db, 'kisan-jaivik-card-applications'), where('coordinatorId', '==', appData.authUid));
+            const kisanCardsSnapshot = await getDocs(kisanCardsQuery);
+            setKisanCardsCreated(kisanCardsSnapshot.docs.map(d => ({id: d.id, ...d.data()}) as KisanCardApplication));
+
+            // Fetch Attendance
+            const attendanceQuery = query(collection(db, 'employees', appData.authUid, 'attendance'), where('markedAt', '>=', thisMonthStart));
+            const attendanceSnapshot = await getDocs(attendanceQuery);
+            setAttendance(attendanceSnapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+
+            setLoadingExtraData(false);
+          }
+
           // Set default domain based on position type
           const positionToDomain = {
               district: '@distvanu.in',
@@ -110,6 +156,15 @@ export default function CoordinatorProfilePage() {
 
     fetchApplication();
   }, [id, router, toast]);
+
+    const attendanceByMonth = useMemo(() => {
+        const data = Array(12).fill(0).map((_, i) => ({ name: format(new Date(0, i), 'MMM'), days: 0 }));
+        attendance.forEach(att => {
+            const month = getMonth(att.markedAt.toDate());
+            data[month].days++;
+        });
+        return data;
+    }, [attendance]);
   
   const handleStatusUpdate = async (newStatus: 'Rejected') => {
       if (!application) return;
@@ -163,17 +218,17 @@ export default function CoordinatorProfilePage() {
 
         // 3. Use a batch write to ensure atomicity
         const batch = writeBatch(db);
-        const newEmployeeRef = doc(collection(db, 'employees'));
+        const newEmployeeRef = doc(db, 'employees', authUid); // Use authUid as doc id for easier lookup
         batch.set(newEmployeeRef, newEmployeeData);
         
         const applicationRef = doc(db, 'coordinator-applications', application.id);
-        batch.update(applicationRef, { status: 'Approved' });
+        batch.update(applicationRef, { status: 'Approved', authUid: authUid });
 
         await batch.commit();
 
         toast({ title: 'Employee Created!', description: `${application.fullName} is now an employee.` });
         setIsApprovalDialogOpen(false);
-        setApplication(prev => prev ? { ...prev, status: 'Approved' } : null);
+        setApplication(prev => prev ? { ...prev, status: 'Approved', authUid } : null);
 
     } catch (error: any) {
         console.error("Approval error:", error);
@@ -393,6 +448,78 @@ export default function CoordinatorProfilePage() {
                  <p className="text-sm text-muted-foreground">Payment ID: {application.paymentId}</p>
             </CardContent>
         </Card>
+        
+        {application.status === 'Approved' && (
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Users2 /> Team Recruited</CardTitle>
+                        <CardDescription>Coordinators added by {application.fullName}.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {loadingExtraData ? <div className="flex justify-center"><Loader2 className="animate-spin" /></div> : (
+                            recruitedCoordinators.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow><TableHead>Name</TableHead><TableHead>Position</TableHead><TableHead>Status</TableHead></TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {recruitedCoordinators.map(c => (
+                                            <TableRow key={c.id}>
+                                                <TableCell>{c.fullName}</TableCell>
+                                                <TableCell className="capitalize">{c.positionType}</TableCell>
+                                                <TableCell><Badge variant={getStatusBadgeVariant(c.status)}>{c.status}</Badge></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : <p className="text-muted-foreground text-sm">No coordinators recruited yet.</p>
+                        )}
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Landmark /> Kisan Cards Created</CardTitle>
+                        <CardDescription>Kisan Jaivik Cards created by {application.fullName}.</CardDescription>
+                    </CardHeader>
+                     <CardContent>
+                        {loadingExtraData ? <div className="flex justify-center"><Loader2 className="animate-spin" /></div> : (
+                            kisanCardsCreated.length > 0 ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow><TableHead>Farmer Name</TableHead><TableHead>Date</TableHead></TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {kisanCardsCreated.map(c => (
+                                            <TableRow key={c.id}>
+                                                <TableCell>{c.name}</TableCell>
+                                                <TableCell>{format(c.submittedAt.toDate(), 'PPP')}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : <p className="text-muted-foreground text-sm">No Kisan Jaivik Cards created yet.</p>
+                        )}
+                    </CardContent>
+                </Card>
+                <Card className="lg:col-span-3">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><BarChart3 /> Attendance History</CardTitle>
+                        <CardDescription>Monthly attendance record for the current year.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         {loadingExtraData ? <div className="flex justify-center"><Loader2 className="animate-spin" /></div> : (
+                            <ChartContainer config={{ days: { label: 'Days', color: 'hsl(var(--primary))' }}} className="h-[250px] w-full">
+                                <BarChart data={attendanceByMonth} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
+                                    <Bar dataKey="days" radius={4} />
+                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                </BarChart>
+                            </ChartContainer>
+                         )}
+                    </CardContent>
+                </Card>
+             </div>
+        )}
 
     </div>
   );

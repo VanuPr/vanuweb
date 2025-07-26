@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, Timestamp, getDocs, collection, where, query, limit } from 'firebase/firestore';
-import { Loader2, LogOut, LayoutDashboard, ShoppingBag, ListOrdered, SlidersHorizontal, Users, FileText, ChevronDown, ClipboardList, ShieldAlert, Wrench, Shapes, Truck, MapPin, UserPlus, GalleryHorizontal } from 'lucide-react';
+import { Loader2, LogOut, LayoutDashboard, ShoppingBag, ListOrdered, SlidersHorizontal, Users, FileText, ChevronDown, ClipboardList, ShieldAlert, Wrench, Shapes, Truck, MapPin, UserPlus, GalleryHorizontal, CalendarCheck } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem } from '@/components/ui/sidebar';
 import { AdminHeader } from '@/components/admin-header';
@@ -211,13 +211,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </CollapsibleContent>
                       </Collapsible>
                     </SidebarMenuItem>
-                    <SidebarMenuItem>
-                        <Link href="/admin/coordinators" passHref>
-                            <SidebarMenuButton tooltip="Employees/Coordinators">
+                    <SidebarMenuItem asChild>
+                      <Collapsible>
+                        <SidebarMenuButton asChild>
+                           <CollapsibleTrigger className="w-full">
                                 <Users />
                                 Employees
-                            </SidebarMenuButton>
-                        </Link>
+                                <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                          </CollapsibleTrigger>
+                        </SidebarMenuButton>
+                        <CollapsibleContent asChild>
+                          <SidebarMenuSub>
+                            <SidebarMenuSubItem>
+                              <Link href="/admin/coordinators" passHref>
+                                <SidebarMenuSubButton>Applications</SidebarMenuSubButton>
+                              </Link>
+                            </SidebarMenuSubItem>
+                            <SidebarMenuSubItem>
+                              <Link href="/admin/attendance" passHref>
+                                <SidebarMenuSubButton>Attendance</SidebarMenuSubButton>
+                              </Link>
+                            </SidebarMenuSubItem>
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </Collapsible>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
                         <Link href="/admin/users" passHref>

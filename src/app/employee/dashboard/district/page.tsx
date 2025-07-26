@@ -4,11 +4,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, User, Users, Landmark, BarChart, Loader2 } from 'lucide-react';
+import { PlusCircle, User, Users, Landmark, BarChart, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
-import { collection, query, where, getDocs, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, Timestamp, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart as RechartsBarChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -37,6 +37,12 @@ interface Application {
     submittedAt: Timestamp;
 }
 
+interface AttendanceRecord {
+    id: string; // employeeId
+    name: string;
+    isPresent: boolean;
+}
+
 export default function DistrictDashboardPage() {
   const [user] = useAuthState(auth);
   const [loading, setLoading] = useState(true);
@@ -44,6 +50,7 @@ export default function DistrictDashboardPage() {
   const [blockCoordinators, setBlockCoordinators] = useState<Employee[]>([]);
   const [panchayatCoordinators, setPanchayatCoordinators] = useState<Employee[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -71,6 +78,7 @@ export default function DistrictDashboardPage() {
             setBlockCoordinators(blockCoords);
             setPanchayatCoordinators(panchayatCoords);
 
+            // Fetch applications
             if (allEmployeeIdsInDistrict.length > 0) {
                  const monthStart = startOfMonth(new Date());
                  const appsQuery = query(
@@ -82,6 +90,16 @@ export default function DistrictDashboardPage() {
                 const appsData = appsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Application));
                 setApplications(appsData);
             }
+            
+            // Fetch Attendance
+            const todayDateString = new Date().toISOString().split('T')[0];
+            const attendanceRecords: AttendanceRecord[] = [];
+            for (const employee of [...blockCoords, ...panchayatCoords]) {
+                const attendanceRef = doc(db, 'employees', employee.authUid, 'attendance', todayDateString);
+                const attendanceSnap = await getDoc(attendanceRef);
+                attendanceRecords.push({ id: employee.authUid, name: employee.name, isPresent: attendanceSnap.exists() });
+            }
+            setAttendance(attendanceRecords);
           }
         }
       } catch (error) {
@@ -115,10 +133,16 @@ export default function DistrictDashboardPage() {
   }, [applications, blockCoordinators, panchayatCoordinators]);
 
 
-  const CoordinatorTable = ({ title, data }: { title: string; data: Employee[] }) => (
+  const CoordinatorTable = ({ title, data, addLink }: { title: string; data: Employee[], addLink: string }) => (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between">
+         <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>View and add coordinators.</CardDescription>
+        </div>
+        <Link href={addLink}>
+            <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+        </Link>
       </CardHeader>
       <CardContent>
         {data.length > 0 ? (
@@ -221,10 +245,41 @@ export default function DistrictDashboardPage() {
                 </ChartContainer>
             </CardContent>
           </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Team Attendance (Today)</CardTitle>
+                    <CardDescription>Live attendance status of your subordinate coordinators.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Coordinator Name</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {attendance.map(att => (
+                                <TableRow key={att.id}>
+                                    <TableCell>{att.name}</TableCell>
+                                    <TableCell>
+                                        {att.isPresent ? (
+                                            <span className="flex items-center text-green-600"><CheckCircle className="mr-2 h-4 w-4" /> Present</span>
+                                        ) : (
+                                            <span className="flex items-center text-red-600"><XCircle className="mr-2 h-4 w-4" /> Absent</span>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
           
           <div className="grid md:grid-cols-2 gap-8">
-            <CoordinatorTable title="Block Coordinators" data={blockCoordinators} />
-            <CoordinatorTable title="Panchayat Coordinators" data={panchayatCoordinators} />
+            <CoordinatorTable title="Block Coordinators" data={blockCoordinators} addLink="/employee-registration" />
+            <CoordinatorTable title="Panchayat Coordinators" data={panchayatCoordinators} addLink="/employee-registration" />
           </div>
 
            <Card>

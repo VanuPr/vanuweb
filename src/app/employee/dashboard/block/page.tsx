@@ -175,9 +175,14 @@ export default function BlockDashboardPage() {
 
             <div className="grid md:grid-cols-2 gap-8">
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Manage Panchayat Coordinators</CardTitle>
-                        <CardDescription>View your existing team.</CardDescription>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>Manage Panchayat Coordinators</CardTitle>
+                            <CardDescription>View and add coordinators for your block.</CardDescription>
+                        </div>
+                        <Link href="/employee-registration">
+                            <Button size="sm"><PlusCircle className="mr-2 h-4 w-4" /> Add</Button>
+                        </Link>
                     </CardHeader>
                      <CardContent>
                          {panchayatCoordinators.length > 0 ? (

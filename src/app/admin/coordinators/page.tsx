@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Loader2, Check, X, Eye } from 'lucide-react';
+import { MoreHorizontal, Loader2, Check, X, Eye, PlusCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -133,6 +134,11 @@ export default function CoordinatorApplicationsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Coordinator Applications</h1>
+         <Link href="/employee-registration">
+          <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add New Coordinator
+          </Button>
+        </Link>
       </div>
       <Card>
         <CardHeader>
