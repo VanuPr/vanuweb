@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Trash2, PlusCircle, Video, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Trash2, PlusCircle, Video, Image as ImageIcon, Upload, Link } from 'lucide-react';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface GalleryItem {
     id: string;
@@ -27,9 +28,15 @@ export default function GalleryAdminPage() {
     const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
     const [loading, setLoading] = useState(true);
     
-    const [newItem, setNewItem] = useState({ title: '', type: 'image' as 'image' | 'video' });
-    const [mediaFile, setMediaFile] = useState<File | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    // State for file upload
+    const [uploadTitle, setUploadTitle] = useState('');
+    const [mediaFiles, setMediaFiles] = useState<FileList | null>(null);
+    const [isSubmittingFiles, setIsSubmittingFiles] = useState(false);
+
+    // State for URL upload
+    const [urlList, setUrlList] = useState('');
+    const [isSubmittingUrls, setIsSubmittingUrls] = useState(false);
+
 
     const fetchGalleryItems = async () => {
         setLoading(true);
@@ -50,42 +57,94 @@ export default function GalleryAdminPage() {
     }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setMediaFile(e.target.files[0]);
+        if (e.target.files) {
+            setMediaFiles(e.target.files);
         }
     };
 
-    const handleAddGalleryItem = async (e: React.FormEvent) => {
+    const handleBulkFileSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newItem.title || !mediaFile) {
-            toast({ variant: "destructive", title: "Missing fields", description: "Please provide a title and select a file to upload." });
+        if (!mediaFiles || mediaFiles.length === 0) {
+            toast({ variant: "destructive", title: "No files selected", description: "Please select one or more files to upload." });
             return;
         }
-        setIsSubmitting(true);
+        setIsSubmittingFiles(true);
+
+        const uploadPromises = Array.from(mediaFiles).map(async (file) => {
+            const storageRef = ref(storage, `gallery/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const mediaUrl = await getDownloadURL(storageRef);
+            const fileType = file.type.startsWith('video') ? 'video' : 'image';
+            const title = uploadTitle ? `${uploadTitle} - ${file.name}` : file.name;
+
+            return {
+                title,
+                url: mediaUrl,
+                type: fileType,
+                createdAt: serverTimestamp()
+            };
+        });
 
         try {
-            const storageRef = ref(storage, `gallery/${Date.now()}_${mediaFile.name}`);
-            const uploadResult = await uploadBytes(storageRef, mediaFile);
-            const mediaUrl = await getDownloadURL(uploadResult.ref);
-
-            await addDoc(collection(db, "gallery"), {
-                ...newItem,
-                url: mediaUrl,
-                createdAt: serverTimestamp()
+            const newItems = await Promise.all(uploadPromises);
+            const batch = writeBatch(db);
+            newItems.forEach(item => {
+                const docRef = doc(collection(db, 'gallery'));
+                batch.set(docRef, item);
             });
+            await batch.commit();
 
-            toast({ title: "Item added", description: "The new item has been added to the gallery." });
-            setNewItem({ title: '', type: 'image' });
-            setMediaFile(null);
+            toast({ title: "Upload Successful", description: `${newItems.length} item(s) added to the gallery.` });
+            setUploadTitle('');
+            setMediaFiles(null);
             (document.getElementById('mediaUpload') as HTMLInputElement).value = '';
             fetchGalleryItems(); 
         } catch (error) {
-            console.error("Error adding gallery item: ", error);
-            toast({ variant: "destructive", title: "Error adding item" });
+            console.error("Error adding gallery items: ", error);
+            toast({ variant: "destructive", title: "Error adding items" });
         } finally {
-            setIsSubmitting(false);
+            setIsSubmittingFiles(false);
         }
     };
+
+    const handleBulkUrlSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const urls = urlList.split('\n').map(url => url.trim()).filter(url => url.length > 0);
+        if (urls.length === 0) {
+            toast({ variant: 'destructive', title: 'No URLs provided', description: 'Please paste at least one URL.' });
+            return;
+        }
+        setIsSubmittingUrls(true);
+
+        const getVideoExtensions = ['.mp4', '.mov', '.avi', '.webm'];
+
+        try {
+            const batch = writeBatch(db);
+            urls.forEach(url => {
+                const docRef = doc(collection(db, 'gallery'));
+                const isVideo = getVideoExtensions.some(ext => url.toLowerCase().includes(ext));
+                const title = url.substring(url.lastIndexOf('/') + 1); // Simple title from URL
+                
+                batch.set(docRef, {
+                    title: title,
+                    url: url,
+                    type: isVideo ? 'video' : 'image',
+                    createdAt: serverTimestamp()
+                });
+            });
+            await batch.commit();
+
+            toast({ title: 'URLs Added', description: `${urls.length} items added from URLs.` });
+            setUrlList('');
+            fetchGalleryItems();
+        } catch (error) {
+            console.error("Error adding items from URLs:", error);
+            toast({ variant: 'destructive', title: 'Failed to add URLs' });
+        } finally {
+            setIsSubmittingUrls(false);
+        }
+    };
+
 
     const handleDeleteGalleryItem = async (id: string) => {
         if (window.confirm("Are you sure you want to delete this gallery item?")) {
@@ -101,37 +160,50 @@ export default function GalleryAdminPage() {
 
     return (
         <div className="grid md:grid-cols-3 gap-8">
-            <div className="md:col-span-1">
+            <div className="md:col-span-1 space-y-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Add to Gallery</CardTitle>
-                        <CardDescription>Upload new photos or videos.</CardDescription>
+                        <CardTitle>Bulk Upload Files</CardTitle>
+                        <CardDescription>Upload new photos or videos from your computer.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleAddGalleryItem} className="space-y-4">
+                        <form onSubmit={handleBulkFileSubmit} className="space-y-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="title">Title</Label>
-                                <Input id="title" value={newItem.title} onChange={(e) => setNewItem({ ...newItem, title: e.target.value })} required disabled={isSubmitting} />
+                                <Label htmlFor="uploadTitle">Title Prefix (Optional)</Label>
+                                <Input id="uploadTitle" placeholder="e.g., Farm Visit" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} disabled={isSubmittingFiles} />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="type">Type</Label>
-                                <Select value={newItem.type} onValueChange={(value: 'image' | 'video') => setNewItem({ ...newItem, type: value })} disabled={isSubmitting}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="image">Image</SelectItem>
-                                        <SelectItem value="video">Video</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label htmlFor="mediaUpload">Files</Label>
+                                <Input id="mediaUpload" type="file" onChange={handleFileChange} required disabled={isSubmittingFiles} accept="image/*,video/*" multiple />
                             </div>
+                            <Button type="submit" className="w-full" disabled={isSubmittingFiles}>
+                                {isSubmittingFiles ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4" />}
+                                Upload Files
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Bulk Add via URLs</CardTitle>
+                        <CardDescription>Add items by pasting image or video links.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleBulkUrlSubmit} className="space-y-4">
                             <div className="grid gap-2">
-                                <Label htmlFor="mediaUpload">File</Label>
-                                <Input id="mediaUpload" type="file" onChange={handleFileChange} required disabled={isSubmitting} accept="image/*,video/*" />
+                                <Label htmlFor="urlList">Image/Video URLs</Label>
+                                <Textarea 
+                                    id="urlList" 
+                                    value={urlList}
+                                    onChange={(e) => setUrlList(e.target.value)}
+                                    placeholder="Paste one URL per line..."
+                                    rows={6}
+                                    disabled={isSubmittingUrls}
+                                />
                             </div>
-                            <Button type="submit" className="w-full" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                Add to Gallery
+                            <Button type="submit" className="w-full" disabled={isSubmittingUrls}>
+                                {isSubmittingUrls ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Link className="mr-2 h-4 w-4" />}
+                                Add from URLs
                             </Button>
                         </form>
                     </CardContent>
