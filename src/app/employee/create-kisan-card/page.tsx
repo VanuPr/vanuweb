@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useState } from "react";
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { useState, useEffect } from "react";
+import { collection, addDoc, serverTimestamp, updateDoc, doc, setDoc } from 'firebase/firestore';
 import { db, auth, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +31,9 @@ export default function CoordinatorKisanCardPage() {
     const [user] = useAuthState(auth);
     const [isLoading, setIsLoading] = useState(false);
     const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+    const [utr, setUtr] = useState('');
+    const [timer, setTimer] = useState(180);
+    const [isConfirmButtonEnabled, setIsConfirmButtonEnabled] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -52,6 +55,27 @@ export default function CoordinatorKisanCardPage() {
         photo: null as File | null,
         signature: null as File | null,
     });
+    
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isQrDialogOpen && timer > 0) {
+            interval = setInterval(() => {
+                setTimer((prevTimer) => prevTimer - 1);
+            }, 1000);
+        }
+        return () => clearInterval(interval);
+    }, [isQrDialogOpen, timer]);
+
+    useEffect(() => {
+        if(isQrDialogOpen) {
+            setTimer(180);
+            setUtr('');
+            const timeout = setTimeout(() => setIsConfirmButtonEnabled(true), 20000); // 20 seconds
+            return () => clearTimeout(timeout);
+        } else {
+             setIsConfirmButtonEnabled(false);
+        }
+    }, [isQrDialogOpen])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, files: inputFiles } = e.target;
@@ -137,52 +161,21 @@ export default function CoordinatorKisanCardPage() {
         }
         
         if (formData.paymentMethod === 'cash') {
-            processApplication({ paymentId: 'Collected in Cash' });
+            processApplication({ paymentId: 'Collected in Cash', paymentMethod: 'Cash' });
         } else if (formData.paymentMethod === 'online_razorpay') {
-            // Handle Razorpay
-            setIsLoading(true);
-            try {
-                const res = await fetch('/api/razorpay', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: 65 }),
-                });
-
-                if (!res.ok) throw new Error('Failed to create Razorpay order');
-                const { order: razorpayOrder } = await res.json();
-                
-                const options = {
-                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-                    amount: razorpayOrder.amount,
-                    currency: "INR",
-                    name: "Vanu Organic Pvt Ltd",
-                    description: "Kisan Jaivik Card Fee",
-                    order_id: razorpayOrder.id,
-                    handler: function (response: any) {
-                        processApplication({
-                            paymentId: response.razorpay_payment_id,
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_signature: response.razorpay_signature,
-                        });
-                    },
-                    prefill: { name: formData.name, contact: formData.mobile },
-                    theme: { color: "#336633" }
-                };
-                
-                const rzp1 = new window.Razorpay(options);
-                 rzp1.on('payment.failed', function (response: any) {
-                    toast({ variant: "destructive", title: "Payment Failed", description: response.error.description });
-                    setIsLoading(false);
-                });
-                rzp1.open();
-
-            } catch(error: any) {
-                 toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate payment.' });
-                 setIsLoading(false);
-            }
+            // This is now disabled
+            toast({ variant: 'destructive', title: 'Payment method not available', description: 'Please choose QR Code instead.' });
         } else if (formData.paymentMethod === 'online_qr') {
             setIsQrDialogOpen(true);
         }
+    };
+    
+    const handleQrSubmit = () => {
+        if (!utr) {
+            toast({ variant: 'destructive', title: 'UTR is required', description: 'Please enter the transaction ID to confirm payment.' });
+            return;
+        }
+        processApplication({ paymentId: `Paid by QR: ${utr}`, paymentMethod: 'QR Code' });
     };
 
   return (
@@ -281,9 +274,9 @@ export default function CoordinatorKisanCardPage() {
 
                     {formData.paymentMethod === 'online' && (
                         <RadioGroup onValueChange={(v) => setFormData({...formData, paymentMethod: v})} className="grid grid-cols-2 gap-4 mt-4">
-                            <Label htmlFor="online_razorpay" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                                <RadioGroupItem value="online_razorpay" id="online_razorpay" className="peer sr-only" />
-                                Pay with Razorpay
+                            <Label htmlFor="online_razorpay" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-50">
+                                <RadioGroupItem value="online_razorpay" id="online_razorpay" className="peer sr-only" disabled />
+                                Pay with Razorpay (Soon)
                             </Label>
                             <Label htmlFor="online_qr" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                                 <RadioGroupItem value="online_qr" id="online_qr" className="peer sr-only" />
@@ -307,15 +300,19 @@ export default function CoordinatorKisanCardPage() {
             <DialogHeader>
                 <DialogTitle>Scan QR Code to Pay</DialogTitle>
                 <DialogDescription>
-                    Please have the farmer scan the QR code below to pay the ₹65 fee. Once paid, confirm the transaction.
+                    Please have the farmer scan the QR code below to pay the **₹65** fee. Once paid, confirm the transaction.
                 </DialogDescription>
             </DialogHeader>
             <div className="flex justify-center p-4">
-                <Image src="https://github.com/akm12109/assets_vanu/blob/main/paymentqr.png?raw=true" alt="Payment QR Code" width={300} height={300} data-ai-hint="payment qr" />
+                <Image src="https://github.com/VanuPr/vanu-assets/blob/main/Qr%20Code.png?raw=true" alt="Payment QR Code" width={300} height={300} data-ai-hint="payment qr" />
             </div>
-            <DialogFooter>
-                 <Button variant="ghost" onClick={() => setIsQrDialogOpen(false)}>Cancel</Button>
-                 <Button onClick={() => processApplication({ paymentId: 'Paid by QR (manual confirmation)' })} disabled={isLoading}>
+             <div className="grid gap-2">
+                <Label htmlFor="utr">Enter UTR / Transaction ID<span className="text-destructive">*</span></Label>
+                <Input id="utr" value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="Enter the transaction reference number" />
+            </div>
+            <DialogFooter className="sm:justify-between items-center">
+                <div className="text-sm text-muted-foreground">Time left: {Math.floor(timer/60)}:{('0' + timer % 60).slice(-2)}</div>
+                 <Button onClick={handleQrSubmit} disabled={!isConfirmButtonEnabled || !utr || isLoading || timer === 0}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Confirm Payment & Submit
                 </Button>
