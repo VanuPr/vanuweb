@@ -2,7 +2,7 @@
 "use client"
 
 import { useState } from "react";
-import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, updateDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, QrCode } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { indianStates } from "@/lib/indian-states";
 import { useRouter } from "next/navigation";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import Image from "next/image";
 
 declare global {
     interface Window {
@@ -26,6 +28,8 @@ export default function KisanJaivikCardPage() {
     const { toast } = useToast();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+    const [utr, setUtr] = useState('');
 
     const [formData, setFormData] = useState({
         name: '',
@@ -40,6 +44,7 @@ export default function KisanJaivikCardPage() {
         district: '',
         pinCode: '',
         state: '',
+        paymentMethod: 'online_qr'
     });
 
     const [files, setFiles] = useState({
@@ -63,7 +68,7 @@ export default function KisanJaivikCardPage() {
         }
     };
     
-    const makePayment = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         const requiredFields: (keyof typeof formData)[] = ['name', 'fatherName', 'dob', 'aadharNo', 'panNo', 'mobile', 'village', 'panchayat', 'block', 'district', 'pinCode', 'state'];
@@ -80,89 +85,47 @@ export default function KisanJaivikCardPage() {
 
         setIsLoading(true);
 
-        try {
+        if(formData.paymentMethod === 'online_qr') {
+            setIsQrDialogOpen(true);
+            setIsLoading(false);
+            return;
+        }
+
+        toast({variant: 'destructive', title: 'Invalid Payment Method'});
+        setIsLoading(false);
+    };
+
+    const handleQrSubmit = async () => {
+         if (!utr) {
+            toast({ variant: 'destructive', title: 'UTR is required', description: 'Please enter the transaction ID to confirm payment.' });
+            return;
+        }
+        setIsLoading(true);
+
+         try {
             // Step 1: Save application data to Firestore with 'payment_pending' status
             const docRef = await addDoc(collection(db, "kisan-jaivik-card-applications"), {
                 ...formData,
-                status: 'payment_pending',
+                status: 'Received',
+                paymentId: `Paid by QR: ${utr}`,
+                paymentMethod: 'QR Code',
                 submittedAt: serverTimestamp()
             });
             const applicationId = docRef.id;
-
-            // Step 2: Create Razorpay order
-            const res = await fetch('/api/razorpay', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: 65 }), // Amount in Rupees
-            });
-
-            if (!res.ok) {
-                throw new Error('Failed to create Razorpay order');
-            }
-
-            const { order: razorpayOrder } = await res.json();
             
-            const options = {
-                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-                amount: razorpayOrder.amount,
-                currency: "INR",
-                name: "Vanu Organic Pvt Ltd",
-                description: "Kisan Jaivik Card Application Fee",
-                image: "/logo.png",
-                order_id: razorpayOrder.id,
-                handler: async function (response: any) {
-                    const data = {
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        razorpay_order_id: response.razorpay_order_id,
-                        razorpay_signature: response.razorpay_signature,
-                    };
-                    
-                    const verifyUrl = `/api/razorpay/verify?applicationId=${applicationId}&type=kisan-card`;
-
-                    const result = await fetch(verifyUrl, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data),
-                    });
-                    
-                    if (result.ok && result.url) {
-                        router.push(result.url);
-                    } else {
-                         const errorResult = await result.json();
-                         toast({ variant: 'destructive', title: 'Payment Verification Failed', description: errorResult.error || 'Please contact support.'});
-                         setIsLoading(false);
-                    }
-                },
-                prefill: {
-                    name: formData.name,
-                    contact: formData.mobile,
-                },
-                theme: {
-                    color: "#336633"
-                }
-            };
-            
-            const rzp1 = new window.Razorpay(options);
-            rzp1.on('payment.failed', function (response: any) {
-                toast({
-                    variant: "destructive",
-                    title: "Payment Failed",
-                    description: response.error.description,
-                });
-                updateDoc(doc(db, "kisan-jaivik-card-applications", applicationId), { status: 'payment_failed' });
-                setIsLoading(false);
-            });
-            rzp1.open();
+            toast({ title: "Application Submitted", description: "Your application has been received."});
+            router.push(`/application-confirmation?id=${applicationId}`);
 
         } catch (error: any) {
-             toast({ variant: 'destructive', title: 'Payment Error', description: error.message || 'Could not initiate payment. Please try again.' });
-             setIsLoading(false);
+             toast({ variant: 'destructive', title: 'Submission Error', description: error.message || 'Could not submit application. Please try again.' });
+        } finally {
+            setIsLoading(false);
+            setIsQrDialogOpen(false);
         }
-    };
+    }
 
   return (
+    <>
     <div className="flex min-h-screen flex-col bg-background">
       <Header />
       <main className="flex-1 py-16 md:py-24 flex items-center justify-center bg-muted/30">
@@ -172,7 +135,7 @@ export default function KisanJaivikCardPage() {
             <CardDescription>Fill out the form below to apply for your card. Grant amount is ₹65.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={makePayment} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="name">Farmer's Name</Label>
@@ -255,5 +218,30 @@ export default function KisanJaivikCardPage() {
       </main>
       <Footer />
     </div>
+    <Dialog open={isQrDialogOpen} onOpenChange={setIsQrDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Scan QR Code to Pay</DialogTitle>
+                <DialogDescription>
+                    Please scan the QR code to pay the **₹65** fee. Once paid, confirm the transaction.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-center p-4">
+                <Image src="https://github.com/VanuPr/vanu-assets/blob/main/Qr%20Code.png?raw=true" alt="Payment QR Code" width={300} height={300} data-ai-hint="payment qr" />
+            </div>
+             <div className="grid gap-2">
+                <Label htmlFor="utr">Enter UTR / Transaction ID<span className="text-destructive">*</span></Label>
+                <Input id="utr" value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="Enter the transaction reference number" />
+            </div>
+            <DialogFooter>
+                 <Button variant="ghost" onClick={() => setIsQrDialogOpen(false)}>Cancel</Button>
+                 <Button onClick={handleQrSubmit} disabled={isLoading || !utr}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirm Payment & Submit
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
