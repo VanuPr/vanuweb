@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, doc, setDoc, Timestamp, getDoc } from 'firebase/firestore';
-import { Loader2, LogOut, LayoutDashboard, Landmark, Users, ClipboardList, PlusCircle, CalendarCheck, TrendingUp } from 'lucide-react';
+import { Loader2, LogOut, LayoutDashboard, Landmark, Users, ClipboardList, PlusCircle, CalendarCheck, TrendingUp, Settings } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider } from '@/components/ui/sidebar';
 import { AdminHeader } from '@/components/admin-header';
@@ -141,6 +141,14 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
                             <SidebarMenuButton tooltip="My Recap">
                                 <TrendingUp />
                                 My Recap
+                            </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                     <SidebarMenuItem>
+                        <Link href="/employee/account" passHref>
+                            <SidebarMenuButton tooltip="My Account">
+                                <Settings />
+                                My Account
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>

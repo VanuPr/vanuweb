@@ -8,12 +8,12 @@ import { db, createSecondaryApp } from '@/lib/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign, Users2, Landmark, CalendarDays, CheckSquare, BarChart3, Ban, Trash2, X } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign, Users2, Landmark, CalendarDays, CheckSquare, BarChart3, Ban, Trash2, X, Info, Eye, EyeOff, Edit } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { format, getMonth, startOfMonth } from 'date-fns';
 import Image from 'next/image';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,6 +22,7 @@ import { deleteApp } from 'firebase/app';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart } from 'recharts';
+import { Textarea } from '@/components/ui/textarea';
 
 interface CoordinatorApplication {
   id: string;
@@ -64,6 +65,7 @@ interface CoordinatorApplication {
   panUrl?: string;
   signatureUrl?: string;
   passbookUrl?: string;
+  passwordHint?: string;
 }
 
 interface KisanCardApplication {
@@ -87,8 +89,10 @@ export default function CoordinatorProfilePage() {
   const { toast } = useToast();
 
   const [application, setApplication] = useState<CoordinatorApplication | null>(null);
+  const [editingApplication, setEditingApplication] = useState<Partial<CoordinatorApplication> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   
   const [recruitedCoordinators, setRecruitedCoordinators] = useState<RecruitedCoordinator[]>([]);
   const [kisanCardsCreated, setKisanCardsCreated] = useState<KisanCardApplication[]>([]);
@@ -99,12 +103,13 @@ export default function CoordinatorProfilePage() {
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordHint, setPasswordHint] = useState('');
   const [domain, setDomain] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-
-    const fetchApplication = async () => {
+  const fetchApplication = async () => {
+      if (!id) return;
       setLoading(true);
       try {
         const docRef = doc(db, 'coordinator-applications', id as string);
@@ -112,6 +117,7 @@ export default function CoordinatorProfilePage() {
         if (docSnap.exists()) {
           const appData = { id: docSnap.id, ...docSnap.data() } as CoordinatorApplication;
           setApplication(appData);
+          setEditingApplication(appData);
           
           if (appData.status === 'Approved' && appData.authUid) {
             setLoadingExtraData(true);
@@ -154,7 +160,9 @@ export default function CoordinatorProfilePage() {
       }
     };
 
+  useEffect(() => {
     fetchApplication();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, router, toast]);
 
     const attendanceByMonth = useMemo(() => {
@@ -188,33 +196,18 @@ export default function CoordinatorProfilePage() {
   }
   
     const handleDelete = async () => {
-        if (!application || !window.confirm("Are you sure you want to delete this coordinator? This will remove their application and employee record but not their auth account.")) return;
-        setIsUpdating(true);
-        try {
-            const batch = writeBatch(db);
-            const appRef = doc(db, 'coordinator-applications', application.id);
-            batch.delete(appRef);
-
-            if(application.authUid) {
-                const empRef = doc(db, 'employees', application.authUid);
-                batch.delete(empRef);
-            }
-            await batch.commit();
-            toast({ title: 'Coordinator Deleted', description: 'Application and employee records have been removed.'});
-            router.push('/admin/coordinators');
-
-        } catch (error) {
-            console.error("Deletion error:", error);
-            toast({ variant: 'destructive', title: 'Deletion Failed'});
-        } finally {
-            setIsUpdating(false);
-        }
+        if (!application) return;
+        toast({ variant: 'destructive', title: 'Feature Not Implemented', description: 'Please ask the developer to implement secure server-side deletion.'})
     };
 
 
   const handleApproveAndCreateEmployee = async () => {
     if (!application || !username || !password || !domain) {
         toast({ variant: 'destructive', title: 'Missing fields', description: 'Please provide a username and password.' });
+        return;
+    }
+    if (password !== confirmPassword) {
+        toast({ variant: 'destructive', title: 'Passwords do not match' });
         return;
     }
 
@@ -253,13 +246,13 @@ export default function CoordinatorProfilePage() {
         batch.set(newEmployeeRef, newEmployeeData);
         
         const applicationRef = doc(db, 'coordinator-applications', application.id);
-        batch.update(applicationRef, { status: 'Approved', authUid: authUid });
+        batch.update(applicationRef, { status: 'Approved', authUid: authUid, passwordHint });
 
         await batch.commit();
 
         toast({ title: 'Employee Created!', description: `${application.fullName} is now an employee.` });
         setIsApprovalDialogOpen(false);
-        setApplication(prev => prev ? { ...prev, status: 'Approved', authUid } : null);
+        setApplication(prev => prev ? { ...prev, status: 'Approved', authUid, passwordHint } : null);
 
     } catch (error: any) {
         console.error("Approval error:", error);
@@ -269,7 +262,39 @@ export default function CoordinatorProfilePage() {
         setIsUpdating(false);
     }
   }
-  
+
+  const handleUpdateProfile = async () => {
+      if(!editingApplication || !application) return;
+
+      setIsUpdating(true);
+      try {
+          const batch = writeBatch(db);
+          
+          const appRef = doc(db, 'coordinator-applications', application.id);
+          batch.update(appRef, editingApplication);
+
+          if(application.authUid) {
+              const empRef = doc(db, 'employees', application.authUid);
+              batch.update(empRef, editingApplication);
+          }
+          await batch.commit();
+
+          toast({ title: 'Profile Updated' });
+          setIsEditing(false);
+          await fetchApplication();
+      } catch (error) {
+           toast({ variant: 'destructive', title: 'Update failed' });
+      } finally {
+          setIsUpdating(false);
+      }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if(!editingApplication) return;
+      const { id, value } = e.target;
+      setEditingApplication(prev => ({...prev, [id]: value }));
+  }
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'Received': return 'default';
@@ -299,12 +324,12 @@ export default function CoordinatorProfilePage() {
         <Button variant="ghost" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Applications
         </Button>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
           <Avatar className="h-24 w-24">
             {application.photoUrl && <AvatarImage src={application.photoUrl} alt={application.fullName} />}
             <AvatarFallback className="text-4xl">{application.fullName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
           </Avatar>
-          <div className="mt-4 sm:mt-0">
+          <div className="mt-4 sm:mt-0 flex-1">
             <h1 className="text-3xl font-bold">{application.fullName}</h1>
             <p className="text-muted-foreground">{application.email}</p>
              <div className="flex items-center gap-4 mt-2">
@@ -312,77 +337,21 @@ export default function CoordinatorProfilePage() {
                 <Badge variant={getStatusBadgeVariant(application.status)}>{application.status}</Badge>
              </div>
           </div>
-          <div className="sm:ml-auto mt-4 sm:mt-0 flex gap-2">
-              {application.status === 'Received' && (
-                  <Dialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button disabled={isUpdating}>
-                            <Check className="mr-2 h-4 w-4"/>Approve
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Create Employee Account</DialogTitle>
-                            <DialogDescription>
-                                Set a username and temporary password for {application.fullName}.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="grid items-center gap-2">
-                                <Label htmlFor="username">Login Username</Label>
-                                <div className="flex items-center">
-                                    <Input
-                                        id="username"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                                        className="rounded-r-none"
-                                        placeholder="e.g., rishavkumar"
-                                    />
-                                    <Select value={domain} onValueChange={setDomain}>
-                                        <SelectTrigger className="w-[150px] rounded-l-none">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="@distvanu.in">@distvanu.in</SelectItem>
-                                            <SelectItem value="@blckvanu.in">@blckvanu.in</SelectItem>
-                                            <SelectItem value="@panvanu.in">@panvanu.in</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <div className="grid items-center gap-2">
-                                <Label htmlFor="password">Temporary Password</Label>
-                                <Input id="password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="ghost" onClick={() => setIsApprovalDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleApproveAndCreateEmployee} disabled={isUpdating}>
-                                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                Approve & Create
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+          <div className="sm:ml-auto mt-4 sm:mt-0 flex flex-wrap gap-2">
+              {isEditing ? (
+                  <>
+                    <Button onClick={handleUpdateProfile} disabled={isUpdating}>
+                        {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Save Changes
+                    </Button>
+                    <Button variant="ghost" onClick={() => { setIsEditing(false); setEditingApplication(application)}}>Cancel</Button>
+                  </>
+              ) : (
+                  <>
+                    <Button onClick={() => setIsEditing(true)}>
+                        <Edit className="mr-2 h-4 w-4"/>Edit Profile
+                    </Button>
+                  </>
               )}
-               {application.status === 'Received' && (
-                  <Button variant="destructive" onClick={() => handleStatusUpdate('Rejected')} disabled={isUpdating}>
-                    <X className="mr-2 h-4 w-4" /> Reject
-                </Button>
-               )}
-               {application.status === 'Approved' && (
-                 <Button variant="outline" onClick={() => handleStatusUpdate('Paused')} disabled={isUpdating}>
-                    <Ban className="mr-2 h-4 w-4" /> Pause Account
-                </Button>
-               )}
-                {application.status === 'Paused' && (
-                 <Button onClick={() => handleStatusUpdate('Approved')} disabled={isUpdating}>
-                    <Check className="mr-2 h-4 w-4" /> Reactivate Account
-                </Button>
-               )}
-                 <Button variant="destructive" onClick={handleDelete} disabled={isUpdating}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </Button>
           </div>
         </div>
       </div>
@@ -391,24 +360,52 @@ export default function CoordinatorProfilePage() {
             <Card className="lg:col-span-2">
                 <CardHeader><CardTitle>Personal & Contact Information</CardTitle></CardHeader>
                 <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Father's Name</span><span className="font-medium">{application.fatherName}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Mother's Name</span><span className="font-medium">{application.motherName}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Date of Birth</span><span className="font-medium">{application.dob}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Gender</span><span className="font-medium capitalize">{application.gender}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Qualification</span><span className="font-medium">{application.qualification}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Nationality</span><span className="font-medium">{application.nationality}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Mobile No.</span><span className="font-medium">{application.mobile}</span></div>
-                    <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">WhatsApp No.</span><span className="font-medium">{application.whatsappNo}</span></div>
+                    {isEditing ? (
+                        <>
+                           <div className="grid gap-2"><Label>Full Name</Label><Input id="fullName" value={editingApplication?.fullName} onChange={handleInputChange} /></div>
+                           <div className="grid gap-2"><Label>Father's Name</Label><Input id="fatherName" value={editingApplication?.fatherName} onChange={handleInputChange} /></div>
+                           <div className="grid gap-2"><Label>Mother's Name</Label><Input id="motherName" value={editingApplication?.motherName} onChange={handleInputChange} /></div>
+                           <div className="grid gap-2"><Label>Date of Birth</Label><Input id="dob" type="date" value={editingApplication?.dob} onChange={handleInputChange} /></div>
+                           <div className="grid gap-2"><Label>Qualification</Label><Input id="qualification" value={editingApplication?.qualification} onChange={handleInputChange} /></div>
+                           <div className="grid gap-2"><Label>Mobile No.</Label><Input id="mobile" value={editingApplication?.mobile} onChange={handleInputChange} /></div>
+                           <div className="grid gap-2"><Label>WhatsApp No.</Label><Input id="whatsappNo" value={editingApplication?.whatsappNo} onChange={handleInputChange} /></div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Father's Name</span><span className="font-medium">{application.fatherName}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Mother's Name</span><span className="font-medium">{application.motherName}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Date of Birth</span><span className="font-medium">{application.dob}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Gender</span><span className="font-medium capitalize">{application.gender}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Qualification</span><span className="font-medium">{application.qualification}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Nationality</span><span className="font-medium">{application.nationality}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Mobile No.</span><span className="font-medium">{application.mobile}</span></div>
+                            <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">WhatsApp No.</span><span className="font-medium">{application.whatsappNo}</span></div>
+                        </>
+                    )}
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader><CardTitle>Address Details</CardTitle></CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                    <p><span className="font-medium">Village:</span> {application.village}</p>
-                    <p><span className="font-medium">Post:</span> {application.post}</p>
-                    <p><span className="font-medium">Panchayat:</span> {application.panchayat}</p>
-                    <p><span className="font-medium">Block:</span> {application.blockName}</p>
-                    <p><span className="font-medium">District:</span> {application.district}, {application.state} - {application.pinCode}</p>
+                 <CardContent className="space-y-2 text-sm">
+                    {isEditing ? (
+                        <>
+                          <div className="grid gap-2"><Label>Village</Label><Input id="village" value={editingApplication?.village} onChange={handleInputChange} /></div>
+                          <div className="grid gap-2"><Label>Post</Label><Input id="post" value={editingApplication?.post} onChange={handleInputChange} /></div>
+                          <div className="grid gap-2"><Label>Panchayat</Label><Input id="panchayat" value={editingApplication?.panchayat} onChange={handleInputChange} /></div>
+                          <div className="grid gap-2"><Label>Block</Label><Input id="blockName" value={editingApplication?.blockName} onChange={handleInputChange} /></div>
+                          <div className="grid gap-2"><Label>District</Label><Input id="district" value={editingApplication?.district} onChange={handleInputChange} /></div>
+                          <div className="grid gap-2"><Label>State</Label><Input id="state" value={editingApplication?.state} onChange={handleInputChange} /></div>
+                          <div className="grid gap-2"><Label>PIN Code</Label><Input id="pinCode" value={editingApplication?.pinCode} onChange={handleInputChange} /></div>
+                        </>
+                    ) : (
+                        <>
+                            <p><span className="font-medium">Village:</span> {application.village}</p>
+                            <p><span className="font-medium">Post:</span> {application.post}</p>
+                            <p><span className="font-medium">Panchayat:</span> {application.panchayat}</p>
+                            <p><span className="font-medium">Block:</span> {application.blockName}</p>
+                            <p><span className="font-medium">District:</span> {application.district}, {application.state} - {application.pinCode}</p>
+                        </>
+                    )}
                 </CardContent>
             </Card>
         </div>
@@ -419,6 +416,13 @@ export default function CoordinatorProfilePage() {
                 <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                     <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Aadhar No.</span><span className="font-medium">{application.aadharNo}</span></div>
                     <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">PAN No.</span><span className="font-medium">{application.panNo}</span></div>
+                     {application.passwordHint && (
+                        <div className="flex items-center gap-2 border-b pb-2 md:col-span-2">
+                            <Info className="h-4 w-4 text-muted-foreground"/>
+                            <span className="text-muted-foreground">Password Hint:</span>
+                            <span className="font-medium">{application.passwordHint}</span>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
             <Card>
@@ -569,6 +573,100 @@ export default function CoordinatorProfilePage() {
                 </Card>
              </div>
         )}
+        
+        <Card className="border-destructive">
+            <CardHeader>
+                <CardTitle>Danger Zone</CardTitle>
+                <CardDescription>Be careful with these actions as they can be destructive.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-4">
+                  {application.status === 'Received' && (
+                  <Dialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button disabled={isUpdating}>
+                            <Check className="mr-2 h-4 w-4"/>Approve
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Create Employee Account</DialogTitle>
+                            <DialogDescription>
+                                Set a username and temporary password for {application.fullName}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid items-center gap-2">
+                                <Label htmlFor="username">Login Username</Label>
+                                <div className="flex items-center">
+                                    <Input
+                                        id="username"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                                        className="rounded-r-none"
+                                        placeholder="e.g., rishavkumar"
+                                    />
+                                    <Select value={domain} onValueChange={setDomain}>
+                                        <SelectTrigger className="w-[150px] rounded-l-none">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="@distvanu.in">@distvanu.in</SelectItem>
+                                            <SelectItem value="@blckvanu.in">@blckvanu.in</SelectItem>
+                                            <SelectItem value="@panvanu.in">@panvanu.in</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="grid items-center gap-2">
+                                <Label htmlFor="password">Temporary Password</Label>
+                                <div className="relative">
+                                    <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} />
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
+                                        {showPassword ? <EyeOff /> : <Eye />}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="grid items-center gap-2">
+                                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                                <Input id="confirmPassword" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                            </div>
+                             <div className="grid items-center gap-2">
+                                <Label htmlFor="passwordHint">Password Hint (Optional)</Label>
+                                <Input id="passwordHint" value={passwordHint} onChange={(e) => setPasswordHint(e.target.value)} placeholder="e.g., favorite color"/>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setIsApprovalDialogOpen(false)}>Cancel</Button>
+                            <Button onClick={handleApproveAndCreateEmployee} disabled={isUpdating}>
+                                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Approve & Create
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+              )}
+               {application.status === 'Received' && (
+                  <Button variant="destructive" onClick={() => handleStatusUpdate('Rejected')} disabled={isUpdating}>
+                    <X className="mr-2 h-4 w-4" /> Reject
+                </Button>
+               )}
+               {application.status === 'Approved' && (
+                 <>
+                    <Button variant="outline" onClick={() => handleStatusUpdate('Paused')} disabled={isUpdating}>
+                        <Ban className="mr-2 h-4 w-4" /> Pause Account
+                    </Button>
+                 </>
+               )}
+                {application.status === 'Paused' && (
+                 <Button onClick={() => handleStatusUpdate('Approved')} disabled={isUpdating}>
+                    <Check className="mr-2 h-4 w-4" /> Reactivate Account
+                </Button>
+               )}
+                 <Button variant="destructive" onClick={handleDelete} disabled={isUpdating}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </Button>
+            </CardContent>
+        </Card>
 
     </div>
   );
