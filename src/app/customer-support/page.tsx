@@ -61,14 +61,14 @@ export default function CustomerSupportPage() {
                                 <Phone className="w-6 h-6 mt-1 text-primary" />
                                 <div>
                                     <h3 className="font-semibold">{t.phone}</h3>
-                                    <a href="tel:+919492757500" className="text-muted-foreground hover:underline">+91 94927 57500</a>
+                                    <a href="tel:+916422357207" className="text-muted-foreground hover:underline">+91-6422357207</a>
                                 </div>
                             </div>
                             <div className="flex items-start gap-4">
                                 <Mail className="w-6 h-6 mt-1 text-primary" />
                                 <div>
                                     <h3 className="font-semibold">{t.emailContact}</h3>
-                                    <a href="mailto:vanuorganic@gmail.com" className="text-muted-foreground hover:underline">vanuorganic@gmail.com</a>
+                                    <a href="mailto:info@vanuorganic.com" className="text-muted-foreground hover:underline">info@vanuorganic.com</a>
                                 </div>
                             </div>
                         </CardContent>

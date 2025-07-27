@@ -74,6 +74,12 @@
   body {
     @apply bg-background text-foreground;
   }
+  .prose {
+    @apply text-foreground;
+  }
+  .prose h3 {
+    @apply text-foreground font-semibold;
+  }
 }
 
 @layer components {

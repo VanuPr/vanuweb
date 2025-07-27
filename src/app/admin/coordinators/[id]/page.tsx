@@ -3,12 +3,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, serverTimestamp, writeBatch, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, serverTimestamp, writeBatch, query, where, getDocs, limit, deleteDoc } from 'firebase/firestore';
 import { db, createSecondaryApp } from '@/lib/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign, Users2, Landmark, CalendarDays, CheckSquare, BarChart3 } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Phone, Home, Calendar, User, Banknote, ChevronsRight, Briefcase, FileText, Download, KeyRound, Check, AtSign, Users2, Landmark, CalendarDays, CheckSquare, BarChart3, Ban, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { format, getMonth, startOfMonth } from 'date-fns';
@@ -56,14 +56,14 @@ interface CoordinatorApplication {
   accountNumber: string;
   ifscCode: string;
   paymentId: string;
-  status: 'Received' | 'Approved' | 'Rejected';
+  status: 'Received' | 'Approved' | 'Rejected' | 'Paused';
   submittedAt: Timestamp;
+  authUid?: string; // This will be set on approval
   photoUrl?: string;
   aadharUrl?: string;
   panUrl?: string;
   signatureUrl?: string;
   passbookUrl?: string;
-  authUid?: string; // This will be set on approval
 }
 
 interface KisanCardApplication {
@@ -166,12 +166,18 @@ export default function CoordinatorProfilePage() {
         return data;
     }, [attendance]);
   
-  const handleStatusUpdate = async (newStatus: 'Rejected') => {
+  const handleStatusUpdate = async (newStatus: 'Rejected' | 'Paused' | 'Approved') => {
       if (!application) return;
       setIsUpdating(true);
       try {
         const docRef = doc(db, 'coordinator-applications', application.id);
         await updateDoc(docRef, { status: newStatus });
+        
+        if(application.authUid) {
+            const empRef = doc(db, 'employees', application.authUid);
+            await updateDoc(empRef, { status: newStatus === 'Paused' ? 'Paused' : 'Active'});
+        }
+
         setApplication(prev => prev ? {...prev, status: newStatus} : null);
         toast({ title: 'Status Updated', description: `Application has been ${newStatus.toLowerCase()}.` });
       } catch (error) {
@@ -180,6 +186,31 @@ export default function CoordinatorProfilePage() {
           setIsUpdating(false);
       }
   }
+  
+    const handleDelete = async () => {
+        if (!application || !window.confirm("Are you sure you want to delete this coordinator? This will remove their application and employee record but not their auth account.")) return;
+        setIsUpdating(true);
+        try {
+            const batch = writeBatch(db);
+            const appRef = doc(db, 'coordinator-applications', application.id);
+            batch.delete(appRef);
+
+            if(application.authUid) {
+                const empRef = doc(db, 'employees', application.authUid);
+                batch.delete(empRef);
+            }
+            await batch.commit();
+            toast({ title: 'Coordinator Deleted', description: 'Application and employee records have been removed.'});
+            router.push('/admin/coordinators');
+
+        } catch (error) {
+            console.error("Deletion error:", error);
+            toast({ variant: 'destructive', title: 'Deletion Failed'});
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
 
   const handleApproveAndCreateEmployee = async () => {
     if (!application || !username || !password || !domain) {
@@ -244,6 +275,7 @@ export default function CoordinatorProfilePage() {
       case 'Received': return 'default';
       case 'Approved': return 'secondary';
       case 'Rejected': return 'destructive';
+      case 'Paused': return 'outline';
       default: return 'outline';
     }
   };
@@ -281,59 +313,76 @@ export default function CoordinatorProfilePage() {
              </div>
           </div>
           <div className="sm:ml-auto mt-4 sm:mt-0 flex gap-2">
-              <Dialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button disabled={isUpdating || application.status !== 'Received'}>
-                        <Check className="mr-2 h-4 w-4"/>Approve
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create Employee Account</DialogTitle>
-                        <DialogDescription>
-                            Set a username and temporary password for {application.fullName}.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid items-center gap-2">
-                            <Label htmlFor="username">Login Username</Label>
-                            <div className="flex items-center">
-                                <Input
-                                    id="username"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                                    className="rounded-r-none"
-                                    placeholder="e.g., rishavkumar"
-                                />
-                                <Select value={domain} onValueChange={setDomain}>
-                                    <SelectTrigger className="w-[150px] rounded-l-none">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="@distvanu.in">@distvanu.in</SelectItem>
-                                        <SelectItem value="@blckvanu.in">@blckvanu.in</SelectItem>
-                                        <SelectItem value="@panvanu.in">@panvanu.in</SelectItem>
-                                    </SelectContent>
-                                </Select>
+              {application.status === 'Received' && (
+                  <Dialog open={isApprovalDialogOpen} onOpenChange={setIsApprovalDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button disabled={isUpdating}>
+                            <Check className="mr-2 h-4 w-4"/>Approve
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Create Employee Account</DialogTitle>
+                            <DialogDescription>
+                                Set a username and temporary password for {application.fullName}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid items-center gap-2">
+                                <Label htmlFor="username">Login Username</Label>
+                                <div className="flex items-center">
+                                    <Input
+                                        id="username"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                                        className="rounded-r-none"
+                                        placeholder="e.g., rishavkumar"
+                                    />
+                                    <Select value={domain} onValueChange={setDomain}>
+                                        <SelectTrigger className="w-[150px] rounded-l-none">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="@distvanu.in">@distvanu.in</SelectItem>
+                                            <SelectItem value="@blckvanu.in">@blckvanu.in</SelectItem>
+                                            <SelectItem value="@panvanu.in">@panvanu.in</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="grid items-center gap-2">
+                                <Label htmlFor="password">Temporary Password</Label>
+                                <Input id="password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
                             </div>
                         </div>
-                        <div className="grid items-center gap-2">
-                            <Label htmlFor="password">Temporary Password</Label>
-                            <Input id="password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsApprovalDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleApproveAndCreateEmployee} disabled={isUpdating}>
-                            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            Approve & Create
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              <Button variant="destructive" onClick={() => handleStatusUpdate('Rejected')} disabled={isUpdating || application.status !== 'Received'}>
-                  {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Reject
-              </Button>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setIsApprovalDialogOpen(false)}>Cancel</Button>
+                            <Button onClick={handleApproveAndCreateEmployee} disabled={isUpdating}>
+                                {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Approve & Create
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+              )}
+               {application.status === 'Received' && (
+                  <Button variant="destructive" onClick={() => handleStatusUpdate('Rejected')} disabled={isUpdating}>
+                    <X className="mr-2 h-4 w-4" /> Reject
+                </Button>
+               )}
+               {application.status === 'Approved' && (
+                 <Button variant="outline" onClick={() => handleStatusUpdate('Paused')} disabled={isUpdating}>
+                    <Ban className="mr-2 h-4 w-4" /> Pause Account
+                </Button>
+               )}
+                {application.status === 'Paused' && (
+                 <Button onClick={() => handleStatusUpdate('Approved')} disabled={isUpdating}>
+                    <Check className="mr-2 h-4 w-4" /> Reactivate Account
+                </Button>
+               )}
+                 <Button variant="destructive" onClick={handleDelete} disabled={isUpdating}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </Button>
           </div>
         </div>
       </div>
@@ -392,7 +441,7 @@ export default function CoordinatorProfilePage() {
                  </div>
                  <div className="border-t pt-4">
                      <h4 className="font-medium">Previous Job Role:</h4>
-                     <p className="text-muted-foreground">{application.prevJob}</p>
+                     <p className="text-muted-foreground">{application.prevJob || 'N/A'}</p>
                  </div>
                  <div className="border-t pt-4">
                      <h4 className="font-medium">Preferred Location:</h4>
@@ -400,7 +449,7 @@ export default function CoordinatorProfilePage() {
                  </div>
                  <div className="border-t pt-4">
                      <h4 className="font-medium">Why do you want to join us?</h4>
-                     <p className="text-muted-foreground whitespace-pre-wrap">{application.whyJoin}</p>
+                     <p className="text-muted-foreground whitespace-pre-wrap">{application.whyJoin || 'N/A'}</p>
                  </div>
             </CardContent>
         </Card>

@@ -294,12 +294,12 @@ export default function AdminOrdersPage() {
                                             </CardHeader>
                                             <CardContent className="flex flex-col gap-2">
                                                 <Button asChild>
-                                                    <a href="tel:+919492757500">
+                                                    <a href="tel:+916422357207">
                                                         <Phone className="mr-2 h-4 w-4" /> Call Us
                                                     </a>
                                                 </Button>
                                                 <Button asChild variant="outline">
-                                                    <a href="mailto:vanuorganic@gmail.com">
+                                                    <a href="mailto:info@vanuorganic.com">
                                                         <Mail className="mr-2 h-4 w-4" /> Mail Us
                                                     </a>
                                                 </Button>

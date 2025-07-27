@@ -110,17 +110,17 @@ function MaintenanceContent() {
                                 <Mail className="h-5 w-5 mt-1 text-muted-foreground"/>
                                 <div>
                                     <h4 className="font-semibold">Email</h4>
-                                    <p className="text-sm text-muted-foreground">vanuorganic@gmail.com</p>
+                                    <p className="text-sm text-muted-foreground">info@vanuorganic.com</p>
                                 </div>
                             </div>
                             <div className="flex items-start gap-4">
                                 <Phone className="h-5 w-5 mt-1 text-muted-foreground"/>
                                 <div>
                                     <h4 className="font-semibold">Phone</h4>
-                                    <p className="text-sm text-muted-foreground">+91 94927 57500</p>
+                                    <p className="text-sm text-muted-foreground">+91-6422357207</p>
                                 </div>
                             </div>
-                            <a href="tel:+919492757500" className="w-full">
+                            <a href="tel:+916422357207" className="w-full">
                                 <Button className="w-full" variant="outline">
                                     <Phone className="mr-2 h-5 w-5" />
                                     Call Company
