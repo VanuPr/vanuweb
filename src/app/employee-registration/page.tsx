@@ -227,7 +227,7 @@ export default function EmployeeRegistrationPage() {
             
             await setDoc(tempDocRef, {
                 ...formData, 
-                photoUrl, aadharUrl, panUrl, signatureUrl, passbookUrl,
+                photoUrl, aadharUrl, panUrl: panUrl || null, signatureUrl, passbookUrl,
                 status: 'Received', 
                 submittedAt: serverTimestamp(), 
                 ...paymentDetails
@@ -268,61 +268,8 @@ export default function EmployeeRegistrationPage() {
         } else if (method === 'qr') {
             setIsQrDialogOpen(true);
         } else if (method === 'razorpay') {
-            setIsLoading(true);
-             try {
-                const tempDocRef = doc(collection(db, "coordinator-applications"));
-                const applicationId = tempDocRef.id;
-
-                const res = await fetch('/api/razorpay', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: 2550 }),
-                });
-                if (!res.ok) throw new Error('Failed to create Razorpay order');
-                const { order } = await res.json();
-                
-                const finalFormData = {
-                    ...formData,
-                    status: 'payment_pending', submittedAt: serverTimestamp()
-                };
-
-                const [photoUrl, aadharUrl, panUrl, signatureUrl, passbookUrl] = await Promise.all([
-                    uploadFile(files.photo, applicationId, 'photo'), uploadFile(files.aadhar, applicationId, 'aadhar'),
-                    uploadFile(files.pan, applicationId, 'pan'), uploadFile(files.signature, applicationId, 'signature'),
-                    uploadFile(files.passbook, applicationId, 'passbook'),
-                ]);
-
-                await setDoc(doc(db, "coordinator-applications", applicationId), {
-                    ...finalFormData, 
-                    photoUrl, aadharUrl, panUrl, signatureUrl, passbookUrl,
-                });
-                
-                const callbackUrl = `${window.location.origin}/api/razorpay/verify?applicationId=${applicationId}&type=coordinator`;
-
-                const rzpOptions = {
-                    key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-                    amount: order.amount,
-                    currency: "INR",
-                    name: "Vanu Organic Pvt Ltd",
-                    description: "Coordinator Application Fee",
-                    image: "/logo.png",
-                    order_id: order.id,
-                    callback_url: callbackUrl,
-                    prefill: {
-                        name: formData.fullName,
-                        email: formData.email,
-                        contact: formData.mobile
-                    },
-                    redirect: true
-                };
-
-                const rzp1 = new window.Razorpay(rzpOptions);
-                rzp1.open();
-
-            } catch (error) {
-                console.error("Error initiating payment: ", error);
-                toast({ variant: "destructive", title: "Payment Failed", description: "Could not initiate payment. Please try again." });
-                setIsLoading(false);
-            }
+           // This section is now disabled as per the new request.
+           // The button calling this is also disabled.
         }
     }
     
@@ -543,8 +490,8 @@ export default function EmployeeRegistrationPage() {
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-                <Button onClick={() => handlePaymentSelection('razorpay')} size="lg">
-                    <CreditCard className="mr-2" /> Pay Online
+                <Button onClick={() => handlePaymentSelection('razorpay')} size="lg" disabled>
+                    <CreditCard className="mr-2" /> Pay Online (Coming Soon)
                 </Button>
                 <Button onClick={() => handlePaymentSelection('qr')} size="lg" variant="outline">
                     <QrCode className="mr-2" /> Pay with QR Code
