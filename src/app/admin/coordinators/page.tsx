@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Loader2, Check, X, Eye, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, Loader2, Check, X, Eye, PlusCircle, PlayCircle } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -21,7 +21,7 @@ interface CoordinatorApplication {
   district: string;
   blockName: string;
   panchayat: string;
-  status: 'Received' | 'Approved' | 'Rejected' | 'payment_pending';
+  status: 'Received' | 'Approved' | 'Rejected' | 'payment_pending' | 'Paused';
   submittedAt: Timestamp;
 }
 
@@ -50,10 +50,10 @@ export default function CoordinatorApplicationsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  const handleRejectStatus = async (id: string) => {
+  const handleUpdateStatus = async (id: string, newStatus: CoordinatorApplication['status']) => {
       try {
           const docRef = doc(db, 'coordinator-applications', id);
-          await updateDoc(docRef, { status: 'Rejected' });
+          await updateDoc(docRef, { status: newStatus });
           toast({ title: 'Status updated successfully' });
           fetchApplications(); // Refresh list
       } catch (error) {
@@ -63,12 +63,15 @@ export default function CoordinatorApplicationsPage() {
   
   const pendingApplications = applications.filter(app => app.status === 'Received' || app.status === 'payment_pending');
   const approvedApplications = applications.filter(app => app.status === 'Approved');
+  const pausedApplications = applications.filter(app => app.status === 'Paused');
+  const rejectedApplications = applications.filter(app => app.status === 'Rejected');
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'Received': return 'default';
       case 'Approved': return 'secondary';
       case 'Rejected': return 'destructive';
+      case 'Paused': return 'outline';
       case 'payment_pending': return 'outline';
       default: return 'outline';
     }
@@ -91,7 +94,7 @@ export default function CoordinatorApplicationsPage() {
             <TableRow key={app.id}>
                 <TableCell className="font-medium">{app.fullName}</TableCell>
                 <TableCell>{app.mobile}</TableCell>
-                <TableCell>{`${app.panchayat}, ${app.blockName}, ${app.district}`}</TableCell>
+                <TableCell>{`${app.panchayat || ''}, ${app.blockName || ''}, ${app.district || ''}`}</TableCell>
                 <TableCell>{app.submittedAt?.toDate().toLocaleDateString() || 'N/A'}</TableCell>
                 <TableCell>
                 <Badge variant={getStatusBadgeVariant(app.status)}>{app.status}</Badge>
@@ -111,15 +114,18 @@ export default function CoordinatorApplicationsPage() {
                     </DropdownMenuItem>
                     {app.status === 'Received' && (
                         <>
-                        <DropdownMenuItem asChild>
-                           <Link href={`/admin/coordinators/${app.id}`}>
-                                <Check className="mr-2 h-4 w-4" /> Approve
-                            </Link>
+                        <DropdownMenuItem onClick={() => handleUpdateStatus(app.id, 'Approved')}>
+                            <Check className="mr-2 h-4 w-4" /> Approve
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleRejectStatus(app.id)}>
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleUpdateStatus(app.id, 'Rejected')}>
                             <X className="mr-2 h-4 w-4" /> Reject
                         </DropdownMenuItem>
                         </>
+                    )}
+                     {app.status === 'Paused' && (
+                        <DropdownMenuItem onClick={() => handleUpdateStatus(app.id, 'Approved')}>
+                           <PlayCircle className="mr-2 h-4 w-4" /> Reactivate
+                        </DropdownMenuItem>
                     )}
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -147,9 +153,11 @@ export default function CoordinatorApplicationsPage() {
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="pending">
-                <TabsList>
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                     <TabsTrigger value="pending">Pending ({pendingApplications.length})</TabsTrigger>
                     <TabsTrigger value="approved">Approved ({approvedApplications.length})</TabsTrigger>
+                    <TabsTrigger value="paused">Paused ({pausedApplications.length})</TabsTrigger>
+                    <TabsTrigger value="rejected">Rejected ({rejectedApplications.length})</TabsTrigger>
                 </TabsList>
                 <TabsContent value="pending" className="mt-4">
                      {loading ? (
@@ -171,6 +179,28 @@ export default function CoordinatorApplicationsPage() {
                         <p className="text-center text-muted-foreground py-10">No approved applications found.</p>
                      ) : (
                         <ApplicationTable applications={approvedApplications} />
+                     )}
+                </TabsContent>
+                 <TabsContent value="paused" className="mt-4">
+                     {loading ? (
+                        <div className="flex justify-center items-center h-48">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                     ) : pausedApplications.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-10">No paused applications found.</p>
+                     ) : (
+                        <ApplicationTable applications={pausedApplications} />
+                     )}
+                </TabsContent>
+                 <TabsContent value="rejected" className="mt-4">
+                     {loading ? (
+                        <div className="flex justify-center items-center h-48">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                     ) : rejectedApplications.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-10">No rejected applications found.</p>
+                     ) : (
+                        <ApplicationTable applications={rejectedApplications} />
                      )}
                 </TabsContent>
             </Tabs>
