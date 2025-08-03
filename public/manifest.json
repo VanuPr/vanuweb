@@ -1,0 +1,21 @@
+{
+  "name": "Vanu Organic",
+  "short_name": "Vanu",
+  "description": "Vanu Organic Pvt Ltd - Specializing in organic farming, education, and social work.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4A6B3A",
+  "icons": [
+    {
+      "src": "/logo/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
