@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Metadata } from 'next';
@@ -85,9 +84,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <head>
+        <link rel="icon" href="/logo/logo.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Sarala:wght@400;700&display=swap" rel="stylesheet" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/logo/logo.png"></link>
+        <meta name="theme-color" content="#ffffff" />
         <title>Vanu Organic</title>
         <meta name="description" content="Vanu Organic Pvt Ltd - Specializing in organic farming, education, and social work." />
       </head>
