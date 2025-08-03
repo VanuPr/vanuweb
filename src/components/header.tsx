@@ -96,7 +96,6 @@ export function Header() {
   ];
 
   const staticServiceLinks = [
-      { href: "/kisan-jaivik-card", label: "Kisan Jaivik Card", icon: Landmark },
       { href: "/coordinator-application", label: "Coordinator Application", icon: Briefcase }
   ];
 

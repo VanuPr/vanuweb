@@ -20,7 +20,6 @@ interface ServicesModalProps {
 
 const services = [
   { name: "Join as Coordinator", icon: Briefcase, href: "/coordinator-application" },
-  { name: "Make Kisan Card", icon: UserPlus, href: "/kisan-jaivik-card" },
   { name: "Download Forms", icon: FileText, href: "/downloads" },
   { name: "Browse Products", icon: ShoppingBag, href: "/products" },
   { name: "Employee/Admin Login", icon: ShieldCheck, href: "/employee-login" },
