@@ -25,6 +25,7 @@ import Image from "next/image";
 
 interface UplineCoordinator {
     role: 'Admin' | 'district' | 'block' | 'panchayat';
+    state?: string;
     district?: string;
     blockName?: string;
     name?: string;
@@ -113,7 +114,7 @@ export default function EmployeeRegistrationPage() {
 
             setFormData(prev => ({
                 ...prev,
-                state: "Jharkhand",
+                state: uplineCoordinator.state || '',
                 district: uplineCoordinator.district || '',
                 blockName: uplineCoordinator.blockName || '',
                 positionType: initialPosition,
@@ -277,7 +278,7 @@ export default function EmployeeRegistrationPage() {
     const disableDistrictPosition = uplineCoordinator?.role === 'district' || uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
     const disableBlockPosition = uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
     const isStateDisabled = uplineCoordinator?.role && uplineCoordinator.role !== 'Admin';
-    const isDistrictDisabled = uplineCoordinator?.role && uplineCoordinator.role !== 'Admin';
+    const isDistrictDisabled = uplineCoordinator?.role && uplineCoordinator.role !== 'Admin' && uplineCoordinator.role !== 'district';
     const isBlockDisabled = uplineCoordinator?.role === 'block';
 
     const availableDistricts = useMemo(() => {
@@ -351,7 +352,7 @@ export default function EmployeeRegistrationPage() {
                      <div className="grid md:grid-cols-2 gap-6">
                          <div className="grid gap-2">
                              <Label htmlFor="state">State</Label>
-                             <Select onValueChange={(v) => handleLocationSelectChange('state', v)} value={formData.state} required disabled={isStateDisabled}>
+                             <Select onValueChange={(v) => handleLocationSelectChange('state', v)} value={formData.state} required>
                                  <SelectTrigger><SelectValue placeholder="Select State" /></SelectTrigger>
                                  <SelectContent>{locationData.states.map(s => <SelectItem key={s.state} value={s.state}>{s.state}</SelectItem>)}</SelectContent>
                              </Select>
@@ -359,7 +360,7 @@ export default function EmployeeRegistrationPage() {
                          {(formData.positionType === 'district' || formData.positionType === 'block' || formData.positionType === 'panchayat') && (
                              <div className="grid gap-2">
                                 <Label htmlFor="district">District</Label>
-                                <Select onValueChange={(v) => handleLocationSelectChange('district', v)} value={formData.district} required disabled={isDistrictDisabled || availableDistricts.length === 0}>
+                                <Select onValueChange={(v) => handleLocationSelectChange('district', v)} value={formData.district} required disabled={availableDistricts.length === 0}>
                                     <SelectTrigger><SelectValue placeholder="Select District" /></SelectTrigger>
                                     <SelectContent>{availableDistricts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                                 </Select>
@@ -368,7 +369,7 @@ export default function EmployeeRegistrationPage() {
                          {(formData.positionType === 'block' || formData.positionType === 'panchayat') && (
                               <div className="grid gap-2">
                                 <Label htmlFor="blockName">Block</Label>
-                                <Input id="blockName" value={formData.blockName} onChange={(e) => handleLocationSelectChange('blockName', e.target.value)} disabled={isBlockDisabled} placeholder="Enter Block Name" />
+                                <Input id="blockName" value={formData.blockName} onChange={(e) => handleLocationSelectChange('blockName', e.target.value)} placeholder="Enter Block Name" />
                             </div>
                          )}
                          {formData.positionType === 'panchayat' && (
