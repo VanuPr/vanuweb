@@ -22,10 +22,13 @@ interface GalleryItem {
     createdAt: any;
 }
 
+const ITEMS_PER_PAGE = 5;
+
 export default function GalleryPage() {
-    const [items, setItems] = useState<GalleryItem[]>([]);
+    const [allItems, setAllItems] = useState<GalleryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
+    const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
     useEffect(() => {
         const fetchItems = async () => {
@@ -34,7 +37,7 @@ export default function GalleryPage() {
                 const q = query(collection(db, "gallery"), orderBy("createdAt", "desc"));
                 const querySnapshot = await getDocs(q);
                 const itemsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GalleryItem));
-                setItems(itemsData);
+                setAllItems(itemsData);
             } catch (error) {
                 console.error("Error fetching gallery items:", error);
             } finally {
@@ -44,7 +47,18 @@ export default function GalleryPage() {
         fetchItems();
     }, []);
 
-    const filteredItems = items.filter(item => filter === 'all' || item.type === filter);
+    const filteredItems = allItems.filter(item => filter === 'all' || item.type === filter);
+    const displayedItems = filteredItems.slice(0, visibleCount);
+    const hasMore = visibleCount < filteredItems.length;
+
+    const handleFilterChange = (newFilter: 'all' | 'image' | 'video') => {
+        setFilter(newFilter);
+        setVisibleCount(ITEMS_PER_PAGE); // Reset visible count on filter change
+    };
+
+    const loadMore = () => {
+        setVisibleCount(prevCount => prevCount + ITEMS_PER_PAGE);
+    };
 
     return (
         <div className="flex min-h-screen flex-col bg-muted/20">
@@ -60,62 +74,71 @@ export default function GalleryPage() {
                     </div>
 
                     <div className="flex justify-center gap-2 mb-8">
-                        <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')}>All</Button>
-                        <Button variant={filter === 'image' ? 'default' : 'outline'} onClick={() => setFilter('image')}>Images</Button>
-                        <Button variant={filter === 'video' ? 'default' : 'outline'} onClick={() => setFilter('video')}>Videos</Button>
+                        <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => handleFilterChange('all')}>All</Button>
+                        <Button variant={filter === 'image' ? 'default' : 'outline'} onClick={() => handleFilterChange('image')}>Images</Button>
+                        <Button variant={filter === 'video' ? 'default' : 'outline'} onClick={() => handleFilterChange('video')}>Videos</Button>
                     </div>
 
                     {loading ? (
                         <div className="flex justify-center items-center h-64">
                             <Loader2 className="h-10 w-10 animate-spin text-primary" />
                         </div>
-                    ) : filteredItems.length === 0 ? (
+                    ) : displayedItems.length === 0 ? (
                         <p className="text-center text-muted-foreground py-10">No items found in this category.</p>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {filteredItems.map(item => (
-                                <Dialog key={item.id}>
-                                    <DialogTrigger asChild>
-                                        <Card className="group overflow-hidden cursor-pointer">
-                                            <CardContent className="relative p-0 aspect-square">
-                                                {item.type === 'image' ? (
-                                                    <Image
-                                                        src={item.url}
-                                                        alt={item.title}
-                                                        layout="fill"
-                                                        objectFit="cover"
-                                                        className="transition-transform duration-300 group-hover:scale-110"
-                                                    />
-                                                ) : (
-                                                    <video
-                                                        src={item.url}
-                                                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                                        muted
-                                                        loop
-                                                        playsInline
-                                                        onMouseOver={e => e.currentTarget.play()}
-                                                        onMouseOut={e => e.currentTarget.pause()}
-                                                    />
-                                                )}
-                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-4">
-                                                    <p className="text-white text-center font-semibold">{item.title}</p>
-                                                </div>
-                                                 <div className="absolute top-2 right-2 bg-background/80 p-1.5 rounded-full">
-                                                    {item.type === 'image' ? <ImageIcon className="h-4 w-4"/> : <Video className="h-4 w-4"/>}
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </DialogTrigger>
-                                    <DialogContent className={cn("p-0 border-0 max-w-4xl", item.type === 'video' && "aspect-video")}>
-                                         {item.type === 'image' ? (
-                                            <Image src={item.url} alt={item.title} width={1200} height={800} className="w-full h-auto rounded-lg" />
-                                         ) : (
-                                            <video src={item.url} className="w-full h-full rounded-lg" controls autoPlay/>
-                                         )}
-                                    </DialogContent>
-                                </Dialog>
-                            ))}
-                        </div>
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                {displayedItems.map(item => (
+                                    <Dialog key={item.id}>
+                                        <DialogTrigger asChild>
+                                            <Card className="group overflow-hidden cursor-pointer">
+                                                <CardContent className="relative p-0 aspect-square">
+                                                    {item.type === 'image' ? (
+                                                        <Image
+                                                            src={item.url}
+                                                            alt={item.title}
+                                                            layout="fill"
+                                                            objectFit="cover"
+                                                            className="transition-transform duration-300 group-hover:scale-110"
+                                                        />
+                                                    ) : (
+                                                        <video
+                                                            src={item.url}
+                                                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                            muted
+                                                            loop
+                                                            playsInline
+                                                            onMouseOver={e => e.currentTarget.play()}
+                                                            onMouseOut={e => e.currentTarget.pause()}
+                                                        />
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-4">
+                                                        <p className="text-white text-center font-semibold">{item.title}</p>
+                                                    </div>
+                                                    <div className="absolute top-2 right-2 bg-background/80 p-1.5 rounded-full">
+                                                        {item.type === 'image' ? <ImageIcon className="h-4 w-4"/> : <Video className="h-4 w-4"/>}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        </DialogTrigger>
+                                        <DialogContent className={cn("p-0 border-0 max-w-4xl", item.type === 'video' && "aspect-video")}>
+                                            {item.type === 'image' ? (
+                                                <Image src={item.url} alt={item.title} width={1200} height={800} className="w-full h-auto rounded-lg" />
+                                            ) : (
+                                                <video src={item.url} className="w-full h-full rounded-lg" controls autoPlay/>
+                                            )}
+                                        </DialogContent>
+                                    </Dialog>
+                                ))}
+                            </div>
+                             <div className="text-center mt-12">
+                                {hasMore ? (
+                                    <Button onClick={loadMore}>Show More</Button>
+                                ) : (
+                                     filteredItems.length > ITEMS_PER_PAGE && <p className="text-muted-foreground">No more images to load.</p>
+                                )}
+                            </div>
+                        </>
                     )}
                 </div>
             </main>
