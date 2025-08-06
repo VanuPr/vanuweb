@@ -84,13 +84,17 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <head>
-        <link rel="icon" href="/logo/logo.png" />
+        <link rel="icon" href="/logo/favicon.ico" sizes="any" />
+        <link rel="icon" href="/logo/favicon-32x32.png" type="image/png" sizes="32x32" />
+        <link rel="icon" href="/logo/favicon-16x16.png" type="image/png" sizes="16x16" />
+        <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#ffffff" />
+
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;600;700&family=Sarala:wght@400;700&display=swap" rel="stylesheet" />
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/logo/logo-192.png"></link>
-        <meta name="theme-color" content="#ffffff" />
+        
         <title>Vanu Organic</title>
         <meta name="description" content="Vanu Organic Pvt Ltd - Specializing in organic farming, education, and social work." />
       </head>
