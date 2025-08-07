@@ -15,13 +15,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, CreditCard, QrCode, Banknote } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { db, storage, auth } from "@/lib/firebase";
+import { getDB, getStorageInstance, getAuthInstance } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, getDocs, query, where, limit, setDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from "next/navigation";
 import locationData from '@/lib/india-locations.json';
 import { useAuthState } from "react-firebase-hooks/auth";
 import Image from "next/image";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 interface UplineCoordinator {
     role: 'Admin' | 'district' | 'block' | 'panchayat';
@@ -31,9 +33,129 @@ interface UplineCoordinator {
     name?: string;
 }
 
+const terms = {
+    district: {
+        en: [
+            "Your registration fee is ₹2550.",
+            "Upon submission of the registration fee, you will be given an ID card and an offer letter.",
+            "It is mandatory to appoint one Block Coordinator in every block of the district you are working in.",
+            "The appointment period for all Block Coordinators in your district will be twenty days. Within these twenty days, it is mandatory to conduct a joining meeting for the Block Coordinators.",
+            "On the day of the Block joining meeting, the date and time of your office opening will be given.",
+            "Your basic salary of 30000 + 5000 TA+DA will start from your joining day.",
+            "After the appointment of all Block Coordinators in your district, it is mandatory to provide them with one day of training.",
+            "After the office opens, it is mandatory to complete 100 Kisan Card joinings and enrollment of 40 children daily.",
+            "After the office opens, your salary will be given only upon having 40 to 60 joinings per month, otherwise, only five hundred will be given per joining for less than 40.",
+            "Upon completing 60 joinings in your district, a basic salary + five hundred rupees per joining will be given.",
+            "From all panchayats in your district, five rupees per Kisan Card will be given to the District Coordinator and ten rupees per child registration.",
+            "Whatever daily collection comes in your district, it is mandatory to deposit it in the company on the same day.",
+            "If you withhold any collection, action will be taken against you and you will be stopped from working in your district.",
+            "It is mandatory to keep all employees of your district in discipline.",
+            "It is mandatory to get stock points opened in all panchayats of your district.",
+            "If you leave the work for any reason, your registration fee will not be refunded. And after leaving the work, it is mandatory to hand over all the accounts of your district to the company and take your NOC.",
+            "In the current situation, if any dispute arises, it will be resolved in the Godda court with the cooperation of the Godda Head Branch.",
+            "In case of any mishap during work, your family will be insured for two lakh rupees by the company. And in case of any accident, fifty thousand rupees will be given for treatment expenses."
+        ],
+        hi: [
+            "आपका रजिस्ट्रेशन शुल्क 2550/- रुपया है.",
+            "रजिस्ट्रेशन शुल्क जमा करने पर आपको आय डी कार्ड तथा ऑफर लेटर दिया जायेगा.",
+            "आप जिस जिले में काम कर रहे उस जिले के सभी ब्लॉक में एक एक ब्लॉक कॉर्डिनेटर कि नियुक्ति करना अनिवार्य होगा.",
+            "अपने जिले के सभी ब्लॉक कि नियुक्ति का समय बीस दिन होगा, इस बीस दिन अन्दर ब्लॉक कोर्डिनेटर कि जोइनिंग मीटिंग कराना अनिवार्य होगा.",
+            "ब्लॉक कि जोइनिंग मीटिंग के दिन ही आपका ऑफिस खुलने कि तारीख और समय दे दिया जायेगा.",
+            "आपकी बेसिक तनख्या 30000+5000 TA+DA आपके जोइनिंग दिन से ही शुरू कर दिया जाता है.",
+            "आपके जिले में सभी ब्लॉक कॉर्डिनेटर कि नियुक्ति के बाद उसे एक दिन का ट्रेनिंग देना अनिवार्य होगा.",
+            "ऑफिस खुलने के बाद प्रतिदिन वो जोइनिंग सौ किसान कार्ड, चालीस बच्चा का नामांकन करना अनिवार्य होगा.",
+            "ऑफिस खुलने के बाद प्रति महिना (चालीश से साठ) ज्योनिंग होने पर ही आपकी सैलरी दी जाएगी अन्यथा चालीश से कम होने पर प्रति ज्योनिंग पांच सौ ही दिया जायेगा.",
+            "आपके जिले का साठ जोइनिंग कम्पलीट होने पर बेसिक तनख्वा + सभी जोइनिंग से पांच सौ रुपया दिया जायेगा.",
+            "आपके जिले का सभी पंचायत से प्रति किसान कार्ड पांच रुपया जिला कोर्डिनेटर को दिया जायेगा प्रति बच्चा रजिस्ट्रेशन दस रुपया दिया जायेगा.",
+            "अपने जिले में जो भी रोजाना का कलेक्शन आता है उसे उसी दिन कंपनी में लगाना अनिवार्य है.",
+            "कोई भी कलेक्शन अगर आप रोकते हैं तो आपके ऊपर कार्यवाही कि जाएगी तथा आपको अपने जिले में कार्य करने से रोक दिया जायेगा.",
+            "अपने जिले के सभी एम्पलॉय को अपने अनुशासन में रखना अनिवार्य होगा.",
+            "अपने जिले के सभी पंचायत में स्टॉक पॉइंट खुलवाना अनिवार्य होगा.",
+            "किसी कारण वश आप कार्य को छोड़ते है तो आपका रजिस्ट्रेशन फीस वापस नहीं किया जाता है. और आप कार्य को छोड़ने के बाद अपने जिले का सारा हिसाब कंपनी को देकर अपना एन को सी लेना अनिवार्य होगा.",
+            "बर्तमान अवस्था में कोई भी विबाद होने पर उसका निराकरण गोड्डा के हेड ब्रांच के सहयोग के साथ गोड्डा न्यायलय में किया जायेगा.",
+            "कार्य करने के दौरान कोई भी अनहोनी होने पर कंपनी द्वारा आपके परिवार को दो लाख का बीमा की जाएगी. और कोई भी दुर्घटना होने पर पचास हजार तक का इलाज हेतु बर्ष दिया जायेगा."
+        ]
+    },
+    block: {
+        en: [
+            "Your registration fee is ₹2550.",
+            "Upon submitting the registration fee, you will be given an ID card and an offer letter.",
+            "It is mandatory to appoint one Panchayat Coordinator in every panchayat of the block you are working in and to conduct a joining meeting for all Panchayat Coordinators.",
+            "The time period for this will be twenty days.",
+            "A Block Coordinator will be given a maximum of ten panchayats.",
+            "After appointing Panchayat Coordinators in your block, it is mandatory to provide them with one day of training.",
+            "After the appointment of all Panchayat Coordinators in your block, your registration fee will be refunded.",
+            "It is mandatory to create two thousand Kisan Jaivik Cards per month from the entire block; only then will the company give you twenty thousand and three thousand (TA+DA).",
+            "If less than two thousand cards are made, the Block Coordinator will be given ten rupees per card.",
+            "Upon making six thousand cards in three months and having a stock point in your block, your salary will be made permanent at 20,000 + 3,000 by the company.",
+            "Upon completing your target in three months, you will be given a bike as a gift by the company, for which you have to pay the registration and insurance, while the company will handle the down payment and EMI.",
+            "No company gift will be given more than once.",
+            "The company provides you with a bike to work in your block.",
+            "It is mandatory to have a stock point in all panchayats of your block, and the minimum amount for each panchayat stock will be fifty thousand.",
+            "If you leave the job for any reason, the company will take back the bike after returning your registration and insurance amount, otherwise, you will have to pay the EMI.",
+            "In the current situation, any dispute will be resolved in the court of Godda.",
+            "In case of any mishap during work, your family will be given an insurance of one lakh by the company, and in case of an accident, up to twenty-five thousand will be given by the company for treatment expenses."
+        ],
+        hi: [
+            "आपका रजिस्ट्रेशन शुल्क 2550/- रुपया है.",
+            "रजिस्ट्रेशन शुल्क जमा करने पर आपको आय डी कार्ड तथा ऑफर लेटर दिया जायेगा.",
+            "आप जिस ब्लॉक में काम कर रहे उस ब्लॉक के सभी पंचायत में एक एक पंचायत कॉर्डिनेटर कि नियुक्ति करना तथा सभी पंचायत कोर्डिनेटर का ज्योर्निंग मीटिंग कराना अनिवार्य होगा.",
+            "जिसका समय अवधि बीस दिन होगी.",
+            "एक ब्लॉक कोर्डिनेटर को अधिकतम दस पंचायत ही दिया जायेगा.",
+            "आपके ब्लॉक में पंचायत कॉर्डिनेटर कि नियुक्ति के बाद उसे एक दिन का ट्रेनिंग देना अनिवार्य होगा.",
+            "आपके ब्लॉक के सभी पंचायत कॉर्डिनेटर कि नियुक्ति के बाद आपका रजिस्ट्रेशन फीस वापस कर दिया जाता है.",
+            "पुरे ब्लॉक से महीने का दो हजार किसान जैविक कार्ड बनवाना अनिवार्य होगा, तो ही कंपनी आपको बीस हजार और तीन हजार (ta+da) देगी.",
+            "दो हजार कार्ड से कम बनने पर ब्लॉक कोर्डिनेटर को प्रति कार्ड दस रुपया दिया जायेगा.",
+            "तीन महीने में छः हजार कार्ड बनाने तथा आपके ब्लॉक में एक स्टॉक पॉइंट होने पर ही कंपनी के द्वारा आपकी सैलरी 20000+3000 परमानेंट कर दी जाती है.",
+            "तीन माह में अपना टारगेट पूरा होने पर कंपनी द्वारा आपको बाइक उपहार के रूप में दिया जाता है जिसका रजिस्ट्रेशन और इन्सौरेंस आपको देना होता है कंपनी डाउन पेमेंट और EMI देती है.",
+            "कंपनी का कोई भी उपहार एक बार ही दिया जायेगा.",
+            "कंपनी आपको बाईक अपने ब्लॉक में काम करने के लिए देती है.",
+            "अपने ब्लॉक के सभी पंचायत में एक स्टॉक पॉइंट होना अनिवार्य होगा तथा सभी पंचायत स्टॉक का न्यूनतम राशि पचास हजार का होगा.",
+            "किसी कारण बश आप कार्य को छोड़ते है तो आपका रजिस्ट्रेशन और इन्सौरेंस का रकम वापस लेकर कंपनी बाइक वापस ले लेगी अन्यथा EMI आपको जमा करा पड़ेगा.",
+            "बर्तमान अवस्था में कोई भी बिबाद होने पर उसका निराकरण गोड्डा के न्यायलय में किया जायेगा.",
+            "कार्य करने के दौरान कोई भी अनहोनी होने पर कंपनी आपके परिवार को एक लाख का बीमा दिया जाता है. या दुर्घटना होने पर इलाज हेतु खर्च पच्चीस हजार तक कंपनी द्वारा दिया जाता है."
+        ]
+    },
+    panchayat: {
+        en: [
+            "Your registration fee is ₹2550.",
+            "Upon submission of the registration fee, you will be given an ID card and an offer letter.",
+            "The work of a Panchayat Coordinator: It is mandatory to appoint one Ward Teacher in every ward of the panchayat you are working in.",
+            "Your registration fee will be returned after the appointment of all Ward Teachers in your panchayat or after one hundred organic farmer cards are made.",
+            "Upon completing four hundred cards from the entire panchayat in a month, your salary will be ten thousand; if less, twenty-five rupees per card will be given.",
+            "Upon completing the target of organic cards in three months, your salary will be made permanent at ten thousand.",
+            "On making twelve hundred cards in three months and having a stock point in your panchayat, a Hero HF Deluxe bike will be gifted by the company.",
+            "You have to pay for its registration and insurance.",
+            "The company gives you the bike to work in your panchayat.",
+            "It is mandatory to have a stock point in your panchayat.",
+            "In case of any mishap during work, fifty thousand rupees will be given to your family by the company, and in case of any accident, fifteen thousand rupees will be given for treatment.",
+            "In the current situation, if any dispute arises, it will be resolved in the court of Godda with the cooperation of the Godda Head Branch.",
+            "It is mandatory to get a stock point opened in your panchayat with a minimum of one lakh."
+        ],
+        hi: [
+            "आपका रजिस्ट्रेशन शुल्क 2550/- रुपया है.",
+            "रजिस्ट्रेशन शुल्क जमा करने पर आपको आय डी कार्ड तथा ऑफर लेटर दिया जायेगा.",
+            "पंचायत कॉर्डिनेटर का कार्य, आप जिस पंचायत में काम कर रहे उस पंचायत के सभी वार्ड में में एक एक वार्ड शिक्षिका कि नियुक्ति करना अनिवार्य होगा.",
+            "आपके पंचायत के सभी वार्ड शिक्षिका कि नियुक्ति या सौ जैविक किसान कार्ड बनने के बाद आपका रजिस्ट्रेशन फीस वापस कर दिया जाता है.",
+            "पुरे पंचायत से महीने का चार सौ कार्ड पूरा करने पर आपकी सेलेरी दस हजार होगी उससे कम होने पर पच्चीस रुपया प्रति कार्ड दिया जायेगा.",
+            "तीन महीने जैविक कार्ड का टारगेट पूरा करने पर आपकी सैलरी दस हजार परमानेंट कर दी जाएगी.",
+            "तीन महीने में बारह सौ कार्ड बनाने तथा आपके पंचायत में एक स्टॉक पॉइंट होने पर ही कंपनी के द्वारा हीरो HF डीलक्स बाईक गिफ्ट की जाती है.",
+            "जिसका रजिस्ट्रेशन और इन्सौरेंस का पैसा आपको देना होता है.",
+            "कंपनी आपको बाईक अपने पंचायत में काम करने के लिए देती है.",
+            "अपने पंचायत में एक स्टॉक पॉइंट होना अनिवार्य होगा.",
+            "कार्य के दौरान कोई भी अनहोनी होने पर कंपनी द्वारा आपके परिवार को पचास हजार दिया जाता है तथा कोई दुर्घटना होने पर पंद्रह हजार इलाज के लिया दिया जाता है.",
+            "बर्तमान अवस्था में कोई भी बात बिवाद होने पर गोड्डा हेड ब्रांच के सहयोग से उसका निराकरण गोड्डा के नयायालय में किया जायेगा.",
+            "अपने पंचायत में न्यूनतम एक लाख का एक स्टॉक पॉइंट खुलवाना अनिवार्य होगा."
+        ]
+    }
+};
+
 export default function EmployeeRegistrationPage() {
     const { toast } = useToast();
     const router = useRouter();
+    const auth = getAuthInstance();
+    const db = getDB();
+    const storage = getStorageInstance();
     const [user, loadingAuth] = useAuthState(auth);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -85,7 +207,7 @@ export default function EmployeeRegistrationPage() {
             }
         }
         fetchUplineData();
-    }, [user]);
+    }, [user, db]);
 
     const [formData, setFormData] = useState({
         fullName: '', fatherName: '', motherName: '', dob: '', gender: '', nationality: 'INDIAN', qualification: '',
@@ -106,6 +228,7 @@ export default function EmployeeRegistrationPage() {
     useEffect(() => {
         if(uplineCoordinator) {
             let initialPosition = '';
+            // Suggest the next level down
             if (uplineCoordinator.role === 'block') {
                 initialPosition = 'panchayat';
             } else if (uplineCoordinator.role === 'district') {
@@ -167,6 +290,10 @@ export default function EmployeeRegistrationPage() {
         if (form && !form.checkValidity()) {
             form.reportValidity();
             toast({ variant: 'destructive', title: 'Incomplete Form', description: 'Please fill out all required fields.' });
+            return;
+        }
+        if (!formData.positionType) {
+            toast({ variant: 'destructive', title: 'Position Required', description: 'Please select a position to apply for.' });
             return;
         }
         if (!formData.declaration1 || !formData.declaration2 || !formData.declaration3) {
@@ -277,9 +404,9 @@ export default function EmployeeRegistrationPage() {
     // Logic for disabling form fields based on upline coordinator's role
     const disableDistrictPosition = uplineCoordinator?.role === 'district' || uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
     const disableBlockPosition = uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
-    const isStateDisabled = uplineCoordinator?.role && uplineCoordinator.role !== 'Admin';
-    const isDistrictDisabled = uplineCoordinator?.role && uplineCoordinator.role !== 'Admin' && uplineCoordinator.role !== 'district';
-    const isBlockDisabled = uplineCoordinator?.role === 'block';
+    const isStateDisabled = uplineCoordinator?.role === 'district' || uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
+    const isDistrictDisabled = uplineCoordinator?.role === 'district' || uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
+    const isBlockDisabled = uplineCoordinator?.role === 'block' || uplineCoordinator?.role === 'panchayat';
 
     const availableDistricts = useMemo(() => {
         if (!formData.state) return [];
@@ -298,6 +425,8 @@ export default function EmployeeRegistrationPage() {
         }
         setFormData(prev => ({ ...prev, preferredLocation: location }));
     }, [formData.panchayat, formData.blockName, formData.district, formData.positionType]);
+
+    const currentTerms = terms[formData.positionType as keyof typeof terms] || terms.panchayat;
 
 
   return (
@@ -352,7 +481,7 @@ export default function EmployeeRegistrationPage() {
                      <div className="grid md:grid-cols-2 gap-6">
                          <div className="grid gap-2">
                              <Label htmlFor="state">State</Label>
-                             <Select onValueChange={(v) => handleLocationSelectChange('state', v)} value={formData.state} required>
+                             <Select onValueChange={(v) => handleLocationSelectChange('state', v)} value={formData.state} required disabled={isStateDisabled}>
                                  <SelectTrigger><SelectValue placeholder="Select State" /></SelectTrigger>
                                  <SelectContent>{locationData.states.map(s => <SelectItem key={s.state} value={s.state}>{s.state}</SelectItem>)}</SelectContent>
                              </Select>
@@ -360,7 +489,7 @@ export default function EmployeeRegistrationPage() {
                          {(formData.positionType === 'district' || formData.positionType === 'block' || formData.positionType === 'panchayat') && (
                              <div className="grid gap-2">
                                 <Label htmlFor="district">District</Label>
-                                <Select onValueChange={(v) => handleLocationSelectChange('district', v)} value={formData.district} required disabled={availableDistricts.length === 0}>
+                                <Select onValueChange={(v) => handleLocationSelectChange('district', v)} value={formData.district} required disabled={availableDistricts.length === 0 || isDistrictDisabled}>
                                     <SelectTrigger><SelectValue placeholder="Select District" /></SelectTrigger>
                                     <SelectContent>{availableDistricts.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                                 </Select>
@@ -369,7 +498,7 @@ export default function EmployeeRegistrationPage() {
                          {(formData.positionType === 'block' || formData.positionType === 'panchayat') && (
                               <div className="grid gap-2">
                                 <Label htmlFor="blockName">Block</Label>
-                                <Input id="blockName" value={formData.blockName} onChange={(e) => handleLocationSelectChange('blockName', e.target.value)} placeholder="Enter Block Name" />
+                                <Input id="blockName" value={formData.blockName} onChange={(e) => handleLocationSelectChange('blockName', e.target.value)} placeholder="Enter Block Name" disabled={isBlockDisabled}/>
                             </div>
                          )}
                          {formData.positionType === 'panchayat' && (
@@ -450,27 +579,30 @@ export default function EmployeeRegistrationPage() {
             <DialogHeader>
                 <DialogTitle>Coordinator Terms & Conditions</DialogTitle>
                 <DialogDescription>
-                    Please review and accept the terms and conditions to complete your application.
+                    Please review and accept the terms and conditions to complete your application for the <strong>{formData.positionType} coordinator</strong> role.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto p-4 border rounded-md my-4">
-                <ul className="space-y-3 list-disc list-inside text-sm">
-                    <li>After the appointment of any coordinator, it will be mandatory to undergo one day training.</li>
-                    <li>Your work starts only after passing the training.</li>
-                    <li>It is mandatory for the Block Coordinator to make two thousand farmer organic cards every month.</li>
-                    <li>The registration fee of Block Coordinator is Rs. 2550, if someone takes more than this fee by offering any inducement then you yourself will be responsible for it.</li>
-                    <li>The money you pay for registration will be refunded once you start working.</li>
-                    <li>Your registration fee will be refunded once at least ten Panchayats of your block are zoned.</li>
-                    <li>In case of any untoward incident during work, the company will provide an insurance of Rs. 1,00,000/- to your family and in case of any accident, Rs. 50,000 will be given for treatment.</li>
-                    <li>The Coordinator will get a salary of twenty thousand (20000 + 3000 TA + DA).</li>
-                    <li>Your salary starts from the day of your training and joining meeting.</li>
-                    <li>On making six thousands cards within three months and opening a stock point in your block, a motor bike Honda SP Shine will be given as a gift by the company.</li>
-                    <li>Whose registration and insurance will be done by you yourself, rest of the EMI and down payment will be done by the company.</li>
-                    <li>The company gives you the bike to work in your block.</li>
-                    <li>After completion of the card processing, along with your Panchayat Coordinator, you will have to explain about the product to the cardholder customers and provide fertilizers (Bio DAP, Bio NPK, Bio Potash) to everyone from your stock point.</li>
-                    <li>At present, if any dispute occurs during work, it will be resolved in the court of Godda with the help of Godda Head Branch.</li>
-                </ul>
-            </div>
+            <Tabs defaultValue="en" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="en">English</TabsTrigger>
+                    <TabsTrigger value="hi">Hindi (हिन्दी)</TabsTrigger>
+                </TabsList>
+                <TabsContent value="en">
+                    <div className="max-h-[50vh] overflow-y-auto p-4 border rounded-md my-4">
+                        <ul className="space-y-3 list-disc list-inside text-sm">
+                            {currentTerms.en.map((term, index) => <li key={`en-${index}`}>{term}</li>)}
+                        </ul>
+                    </div>
+                </TabsContent>
+                <TabsContent value="hi">
+                     <div className="max-h-[50vh] overflow-y-auto p-4 border rounded-md my-4">
+                        <ul className="space-y-3 list-disc list-inside text-sm font-hindi">
+                            {currentTerms.hi.map((term, index) => <li key={`hi-${index}`}>{term}</li>)}
+                        </ul>
+                    </div>
+                </TabsContent>
+            </Tabs>
+
             <div className="flex items-center space-x-2">
                 <Checkbox id="terms" checked={termsAgreed} onCheckedChange={(c) => setTermsAgreed(!!c)} />
                 <Label htmlFor="terms" className="cursor-pointer">I have read, understood, and agree to the terms and conditions.</Label>

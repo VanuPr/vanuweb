@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, User, Users, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -58,6 +58,8 @@ const CoordinatorTable = ({ data, title }: { data: Employee[]; title: string }) 
 
 
 export default function EmployeeCoordinatorsPage() {
+    const auth = getAuthInstance();
+    const db = getDB();
     const [user] = useAuthState(auth);
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -106,7 +108,7 @@ export default function EmployeeCoordinatorsPage() {
         };
 
         fetchData();
-    }, [user]);
+    }, [user, db]);
 
     const renderContent = () => {
         if (loading) {

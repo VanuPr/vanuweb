@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { getAuthInstance, getDB } from "@/lib/firebase";
 import { query, where, collection, getDocs } from "firebase/firestore";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -19,6 +19,8 @@ import { Loader2 } from "lucide-react";
 export default function CoordinatorLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = getAuthInstance();
+  const db = getDB();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);

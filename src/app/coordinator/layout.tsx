@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { SidebarProvider, Sidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarHeader, SidebarContent } from '@/components/ui/sidebar';
 import { LayoutDashboard, LogOut, Loader2 } from 'lucide-react';
@@ -15,6 +15,8 @@ interface CoordinatorProfile {
 }
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
   const router = useRouter();
   const [accessStatus, setAccessStatus] = useState<'loading' | 'granted' | 'suspended' | 'not_found'>('loading');
@@ -53,7 +55,7 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
     };
 
     verifyCoordinator();
-  }, [user, loadingAuth, router]);
+  }, [user, loadingAuth, router, db]);
 
   useEffect(() => {
     if (accessStatus === 'suspended') {
@@ -62,7 +64,7 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
       auth.signOut();
       router.replace('/coordinator-login');
     }
-  }, [accessStatus, router]);
+  }, [accessStatus, router, auth]);
 
 
   if (accessStatus !== 'granted') {

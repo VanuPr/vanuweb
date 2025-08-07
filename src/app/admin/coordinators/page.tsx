@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs, Timestamp, updateDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,7 @@ interface CoordinatorApplication {
 }
 
 export default function CoordinatorApplicationsPage() {
+  const db = getDB();
   const [applications, setApplications] = useState<CoordinatorApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();

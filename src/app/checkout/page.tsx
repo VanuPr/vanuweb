@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/language-context';
 import { useCart } from '@/context/cart-context';
-import { db, auth } from '@/lib/firebase';
+import { getDB, getAuthInstance } from '@/lib/firebase';
 import { collection, addDoc, doc, getDoc, serverTimestamp, onSnapshot, updateDoc, setDoc } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Image from "next/image";
@@ -43,6 +43,8 @@ export default function CheckoutPage() {
   const t = translations.checkout;
   const router = useRouter();
   const { toast } = useToast();
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
 
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -110,7 +112,7 @@ export default function CheckoutPage() {
         });
         return () => unsubAddresses();
     }
-  }, [user, selectedAddress]);
+  }, [user, selectedAddress, db]);
 
   const getPriceAsNumber = (price: string | number) => {
     if (typeof price === 'number') return price;

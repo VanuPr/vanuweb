@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Wrench, PauseCircle, ServerOff, Loader2, ShieldAlert, Phone, Building, LogOut, FileWarning, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { auth } from '@/lib/firebase';
+import { getAuthInstance } from '@/lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Link from 'next/link';
 
@@ -41,6 +41,7 @@ const statusMap: { [key: string]: StatusDetails } = {
 };
 
 function AdminStatusContent() {
+    const auth = getAuthInstance();
     const searchParams = useSearchParams();
     const router = useRouter();
     const [user, loading] = useAuthState(auth);

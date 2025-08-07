@@ -16,17 +16,19 @@ const firebaseConfig = {
   measurementId: "G-1DPH9N8L6S"
 };
 
-// Initialize main app
+// Initialize main app instance
 const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
-const storage: FirebaseStorage = getStorage(app);
-const googleProvider: GoogleAuthProvider = new GoogleAuthProvider();
+// Create singleton instances of Firebase services
+const authInstance: Auth = getAuth(app);
+const dbInstance: Firestore = getFirestore(app);
+const storageInstance: FirebaseStorage = getStorage(app);
+const googleProviderInstance: GoogleAuthProvider = new GoogleAuthProvider();
 
 /**
- * Creates a temporary secondary Firebase app instance for isolated operations
- * Useful for background auth or isolated logic
+ * Creates a temporary secondary Firebase app instance for isolated operations.
+ * Useful for background auth or isolated logic.
+ * @returns An object containing the temporary app and auth instances.
  */
 const createSecondaryApp = (): { tempApp: FirebaseApp, tempAuth: Auth } => {
   const secondaryAppName = `secondary-app-${Date.now()}`;
@@ -35,12 +37,12 @@ const createSecondaryApp = (): { tempApp: FirebaseApp, tempAuth: Auth } => {
   return { tempApp, tempAuth };
 };
 
-// Exporting instances for external use
-export {
-  app,
-  auth,
-  db,
-  storage,
-  googleProvider,
-  createSecondaryApp
-};
+// Functions to get instances, ensuring they are initialized
+export const getAppInstance = (): FirebaseApp => app;
+export const getAuthInstance = (): Auth => authInstance;
+export const getDB = (): Firestore => dbInstance;
+export const getStorageInstance = (): FirebaseStorage => storageInstance;
+export const getGoogleProvider = (): GoogleAuthProvider => googleProviderInstance;
+
+// Exporting functions for external use
+export { createSecondaryApp };

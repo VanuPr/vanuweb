@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc, Timestamp, collection, addDoc, serverTimestamp, writeBatch, query, where, getDocs, limit, deleteDoc } from 'firebase/firestore';
-import { db, createSecondaryApp } from '@/lib/firebase';
+import { getDB, createSecondaryApp } from '@/lib/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,6 +83,7 @@ interface RecruitedCoordinator {
 
 
 export default function CoordinatorProfilePage() {
+  const db = getDB();
   const params = useParams();
   const router = useRouter();
   const { id } = params;

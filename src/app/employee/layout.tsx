@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, doc, setDoc, Timestamp, getDoc } from 'firebase/firestore';
 import { Loader2, LogOut, LayoutDashboard, Landmark, Users, ClipboardList, PlusCircle, CalendarCheck, TrendingUp, Settings } from 'lucide-react';
 import { Logo } from '@/components/logo';
@@ -20,6 +20,8 @@ interface EmployeeProfile {
 
 
 export default function EmployeeLayout({ children }: { children: React.ReactNode }) {
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
   const router = useRouter();
   const [employeeStatus, setEmployeeStatus] = useState<'loading' | 'active' | 'suspended' | 'not_found'>('loading');
@@ -63,7 +65,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       }
     };
     verifyEmployeeRole();
-  }, [user, loadingAuth, router]);
+  }, [user, loadingAuth, router, db]);
 
    useEffect(() => {
     if (employeeStatus === 'suspended') {
@@ -72,7 +74,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       auth.signOut();
       router.replace('/employee-login');
     }
-  }, [employeeStatus, router]);
+  }, [employeeStatus, router, auth]);
 
 
    useEffect(() => {
@@ -86,7 +88,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       }
     };
     checkAttendance();
-  }, [employeeId]);
+  }, [employeeId, db]);
 
   const handleMarkAttendance = async () => {
     if (!employeeId) return;

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, doc, getDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -19,6 +19,7 @@ interface Employee {
 }
 
 export default function AdminAttendancePage() {
+  const db = getDB();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [presentEmployees, setPresentEmployees] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +55,7 @@ export default function AdminAttendancePage() {
     };
 
     fetchAttendanceData();
-  }, [toast, todayDateString]);
+  }, [toast, todayDateString, db]);
 
   const absentEmployees = employees.filter(emp => !presentEmployees.includes(emp.id));
   const presentEmployeesList = employees.filter(emp => presentEmployees.includes(emp.id));

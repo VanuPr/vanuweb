@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { auth, db } from "@/lib/firebase";
+import { getAuthInstance, getDB } from "@/lib/firebase";
 import { onAuthStateChanged, User, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot, terminate, Timestamp, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ interface AdminPageStatusMap {
 
 export default function DeveloperDashboardPage() {
   const { toast } = useToast();
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbStatus, setDbStatus] = useState<ServiceStatus>("checking");

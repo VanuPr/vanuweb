@@ -1,12 +1,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { db, storage } from '@/lib/firebase';
+import { getDB, getStorageInstance } from '@/lib/firebase';
 import { doc, updateDoc, getDoc, collection } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useCart } from '@/context/cart-context';
 
 const uploadFile = async (file: File, applicationId: string, fileType: string): Promise<string> => {
+    const storage = getStorageInstance();
     const storageRef = ref(storage, `kisan-jaivik-card-applications/${applicationId}/${fileType}-${file.name}`);
     const uploadResult = await uploadBytes(storageRef, file);
     return getDownloadURL(uploadResult.ref);
@@ -14,6 +15,7 @@ const uploadFile = async (file: File, applicationId: string, fileType: string): 
 
 export async function POST(request: NextRequest) {
     try {
+        const db = getDB();
         const body = await request.json();
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body;
         

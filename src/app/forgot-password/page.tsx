@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getAuthInstance } from "@/lib/firebase";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ export default function ForgotPasswordPage() {
     const t = translations.customerAuth;
     const router = useRouter();
     const { toast } = useToast();
+    const auth = getAuthInstance();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 

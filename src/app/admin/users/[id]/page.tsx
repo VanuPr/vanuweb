@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +44,7 @@ interface Order {
 }
 
 export default function UserProfilePage() {
+  const db = getDB();
   const params = useParams();
   const router = useRouter();
   const { id } = params;
@@ -87,7 +88,7 @@ export default function UserProfilePage() {
     };
 
     fetchAllData();
-  }, [id, router]);
+  }, [id, router, db]);
   
   const totalSpent = useMemo(() => orders.reduce((sum, order) => sum + order.total, 0), [orders]);
 
@@ -220,5 +221,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-    

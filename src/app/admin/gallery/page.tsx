@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getDB, getStorageInstance } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,8 @@ interface GalleryItem {
 }
 
 export default function GalleryAdminPage() {
+    const db = getDB();
+    const storage = getStorageInstance();
     const { toast } = useToast();
     const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -54,6 +56,7 @@ export default function GalleryAdminPage() {
 
     useEffect(() => {
         fetchGalleryItems();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

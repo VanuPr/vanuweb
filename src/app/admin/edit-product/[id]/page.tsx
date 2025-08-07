@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc, updateDoc, serverTimestamp, collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getDB, getStorageInstance } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +40,8 @@ interface ProductData {
 }
 
 export default function EditProductPage() {
+  const db = getDB();
+  const storage = getStorageInstance();
   const { toast } = useToast();
   const router = useRouter();
   const params = useParams();
@@ -83,7 +85,7 @@ export default function EditProductPage() {
     };
 
     fetchProductAndCategories();
-  }, [id, router, toast]);
+  }, [id, router, toast, db]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<File | null>>) => {
     if (e.target.files && e.target.files[0]) {

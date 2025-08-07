@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { getDB, getAuthInstance } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Check, X } from 'lucide-react';
@@ -41,6 +41,8 @@ export default function ApplicationDetailPage() {
   const router = useRouter();
   const { id } = params;
   const { toast } = useToast();
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
 
   const [application, setApplication] = useState<Application | null>(null);
@@ -71,7 +73,7 @@ export default function ApplicationDetailPage() {
     };
 
     fetchApplication();
-  }, [id, router, toast]);
+  }, [id, router, toast, db]);
 
   const handleStatusUpdate = async (newStatus: 'Approved' | 'Rejected') => {
     if (!application) return;

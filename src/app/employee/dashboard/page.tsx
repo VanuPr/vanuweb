@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
@@ -13,6 +13,8 @@ interface EmployeeProfile {
 }
 
 export default function EmployeeDashboardRouter() {
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null);
   const [loadingRole, setLoadingRole] = useState(true);
@@ -64,7 +66,7 @@ export default function EmployeeDashboardRouter() {
     };
 
     fetchRoleAndRedirect();
-  }, [user, loadingAuth, router]);
+  }, [user, loadingAuth, router, db, auth]);
 
   // Display a loader while we determine the user's role and redirect
   return (

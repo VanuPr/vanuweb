@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,6 +19,7 @@ interface Category {
 }
 
 export default function CategoriesPage() {
+    const db = getDB();
     const { toast } = useToast();
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);

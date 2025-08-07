@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -41,6 +41,7 @@ interface Category {
 }
 
 export default function AdminProductsPage() {
+  const db = getDB();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);

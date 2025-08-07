@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Metadata } from 'next';
@@ -9,7 +10,7 @@ import { WishlistProvider } from '@/context/wishlist-context';
 import { AppBody } from './app-body';
 import React, { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import Script from 'next/script';
@@ -41,6 +42,7 @@ export default function RootLayout({
   const router = useRouter();
 
   useEffect(() => {
+    const db = getDB();
     const settingsRef = doc(db, "siteSettings", "lockState");
     const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -84,12 +86,16 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <head>
+        <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/logo/favicon.ico" sizes="any" />
         <link rel="icon" href="/logo/favicon-32x32.png" type="image/png" sizes="32x32" />
         <link rel="icon" href="/logo/favicon-16x16.png" type="image/png" sizes="16x16" />
         <link rel="apple-touch-icon" href="/logo/apple-touch-icon.png" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#1c4519" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Vanu Organic" />
+
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

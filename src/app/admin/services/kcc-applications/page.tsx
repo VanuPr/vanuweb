@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ interface KccApplication {
 
 
 export default function KccApplicationsPage() {
+  const db = getDB();
   const [applications, setApplications] = useState<KccApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -44,7 +45,7 @@ export default function KccApplicationsPage() {
     };
 
     fetchApplications();
-  }, [toast]);
+  }, [toast, db]);
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {

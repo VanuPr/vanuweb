@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getDB, getStorageInstance } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +23,8 @@ interface Slide {
 }
 
 export default function SlideshowAdminPage() {
+    const db = getDB();
+    const storage = getStorageInstance();
     const { toast } = useToast();
     const [slides, setSlides] = useState<Slide[]>([]);
     const [loadingSlides, setLoadingSlides] = useState(true);

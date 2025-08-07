@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { deleteUser } from 'firebase/auth';
 import { doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -17,6 +17,8 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function EmployeeAccountPage() {
+    const auth = getAuthInstance();
+    const db = getDB();
     const [user] = useAuthState(auth);
     const { toast } = useToast();
     const router = useRouter();

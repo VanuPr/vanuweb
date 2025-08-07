@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -55,6 +55,7 @@ interface KccApplicationData {
 
 export default function KisanCardApplicationPage() {
     const { toast } = useToast();
+    const db = getDB();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState<KccApplicationData>({
         bankName: '',

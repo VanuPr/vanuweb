@@ -4,11 +4,12 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '@/lib/firebase';
+import { getAuthInstance } from '@/lib/firebase';
 import { Loader2, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function DevLayout({ children }: { children: React.ReactNode }) {
+  const auth = getAuthInstance();
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
 

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { getAuthInstance, getDB } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -21,6 +21,8 @@ export default function RegisterPage() {
     const t = translations.customerAuth;
     const router = useRouter();
     const { toast } = useToast();
+    const auth = getAuthInstance();
+    const db = getDB();
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [email, setEmail] = useState('');

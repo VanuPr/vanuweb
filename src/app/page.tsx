@@ -12,7 +12,7 @@ import Link from "next/link";
 import { Leaf, Shield, HeartHandshake, Users, Sparkles, Loader2, Search, Tractor } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { ProductCard } from "@/components/product-card";
 import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, query, where, limit, orderBy } from "firebase/firestore";
@@ -54,6 +54,8 @@ interface Service {
 
 export default function Home() {
   const { translations } = useLanguage();
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
   const t = translations.home;
   
@@ -98,7 +100,7 @@ export default function Home() {
     };
     
     fetchInitialData();
-  }, []);
+  }, [db]);
 
   const activeProducts = useMemo(() => allProducts.filter(p => p.status === 'Active'), [allProducts]);
   

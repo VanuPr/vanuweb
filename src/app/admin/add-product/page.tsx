@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, serverTimestamp, getDocs, orderBy, query } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getDB, getStorageInstance } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,8 @@ interface Category {
 }
 
 export default function AddProductPage() {
+  const db = getDB();
+  const storage = getStorageInstance();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -64,7 +66,7 @@ export default function AddProductPage() {
       }
     };
     fetchCategories();
-  }, [toast]);
+  }, [toast, db]);
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: React.Dispatch<React.SetStateAction<File | null>>) => {

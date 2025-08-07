@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getDB, getStorageInstance } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,8 @@ interface Service {
 }
 
 export default function ServicesAdminPage() {
+    const db = getDB();
+    const storage = getStorageInstance();
     const { toast } = useToast();
     const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
@@ -51,6 +53,7 @@ export default function ServicesAdminPage() {
 
     useEffect(() => {
         fetchServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleOpenDialog = (service: Partial<Service> | null = null) => {

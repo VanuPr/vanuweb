@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { collection, getDocs, query, orderBy, limit, Timestamp, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, onSnapshot, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { IndianRupee, ShoppingBag, ListOrdered, Loader2, ArrowRight, PlusCircle, Ship, Trash2, Tag, Check, X, PackageX, PackageCheck, Mail, MessageSquare, Users, CheckSquare, CalendarCheck } from "lucide-react";
@@ -46,6 +46,7 @@ interface Fee {
 }
 
 export default function AdminDashboard() {
+  const db = getDB();
   const [stats, setStats] = useState({
     products: 0,
     orders: 0,
@@ -164,7 +165,7 @@ export default function AdminDashboard() {
         unsubPendingOrders();
         unsubscribeFees();
     }
-  }, [toast]);
+  }, [toast, db]);
   
   const handleSaveShipping = async () => {
       setLoadingShipping(true);

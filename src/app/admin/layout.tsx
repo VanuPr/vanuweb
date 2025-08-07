@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { doc, onSnapshot, Timestamp, getDocs, collection, where, query, limit } from 'firebase/firestore';
 import { Loader2, LogOut, LayoutDashboard, ShoppingBag, ListOrdered, SlidersHorizontal, Users, FileText, ChevronDown, ClipboardList, ShieldAlert, Wrench, Shapes, Truck, MapPin, UserPlus, GalleryHorizontal, CalendarCheck, Settings } from 'lucide-react';
 import { Logo } from '@/components/logo';
@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loading] = useAuthState(auth);
   const router = useRouter();
   const pathname = usePathname();
@@ -40,7 +42,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setLoadingLock(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [db]);
 
   React.useEffect(() => {
     if (loading) return; // Wait until Firebase auth state is resolved
@@ -71,7 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
 
     verifyAdminRole();
-  }, [user, loading, router]);
+  }, [user, loading, router, db]);
 
   React.useEffect(() => {
     if (loading || loadingLock || loadingRole) return;

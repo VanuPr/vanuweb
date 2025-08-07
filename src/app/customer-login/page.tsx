@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { auth, db, googleProvider } from "@/lib/firebase";
+import { getAuthInstance, getDB, getGoogleProvider } from "@/lib/firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -37,6 +37,9 @@ export default function CustomerLoginPage() {
     const t = translations.customerAuth;
     const router = useRouter();
     const { toast } = useToast();
+    const auth = getAuthInstance();
+    const db = getDB();
+    const googleProvider = getGoogleProvider();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);

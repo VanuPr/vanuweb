@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { getAuthInstance, getDB } from "@/lib/firebase";
 import { doc, getDoc, query, where, collection, getDocs } from "firebase/firestore";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -15,10 +15,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import Link from 'next/link';
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 
 export default function EmployeeLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = getAuthInstance();
+  const db = getDB();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);

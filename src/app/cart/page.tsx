@@ -13,7 +13,7 @@ import { Trash2, Plus, Minus, Loader2, Info } from "lucide-react";
 import { useLanguage } from "@/context/language-context";
 import { useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDB } from "@/lib/firebase";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Fee {
@@ -29,6 +29,7 @@ export default function CartPage() {
   const [additionalFees, setAdditionalFees] = useState<Fee[]>([]);
   const [minCartValue, setMinCartValue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const db = getDB();
 
   useEffect(() => {
     const fetchCharges = async () => {
@@ -57,7 +58,7 @@ export default function CartPage() {
       }
     };
     fetchCharges();
-  }, []);
+  }, [db]);
   
   const getPriceAsNumber = (price: string | number) => {
     if (typeof price === 'number') {

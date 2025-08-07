@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs, Timestamp, where } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { getDB, getAuthInstance } from '@/lib/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -88,6 +88,8 @@ const getStatusBadgeVariant = (status: string) => {
 
 
 export default function KisanJaivikCardApplicationsPage() {
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loadingAuth] = useAuthState(auth);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -168,7 +170,7 @@ export default function KisanJaivikCardApplicationsPage() {
     };
 
     fetchApplications();
-  }, [user, toast]);
+  }, [user, toast, db]);
 
 
   if (loading || loadingAuth) {
@@ -232,4 +234,3 @@ export default function KisanJaivikCardApplicationsPage() {
     </div>
   );
 }
-

@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuthState, useUpdateProfile } from 'react-firebase-hooks/auth';
-import { auth, db, storage } from '@/lib/firebase';
+import { getAuthInstance, getDB, getStorageInstance } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, Timestamp, onSnapshot, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -16,8 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Header } from '@/components/header';
-import { Footer } from '@/components/footer';
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { sendNotificationEmail } from '@/ai/flows/send-email-flow';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -88,6 +88,9 @@ interface Order {
 type ActiveView = 'profile' | 'orders' | 'addresses' | 'cart' | 'wishlist';
 
 export default function AccountPage() {
+    const auth = getAuthInstance();
+    const db = getDB();
+    const storage = getStorageInstance();
     const [user, loadingAuth, authError] = useAuthState(auth);
     const router = useRouter();
     const { toast } = useToast();
@@ -176,7 +179,7 @@ export default function AccountPage() {
             }
         }
 
-    }, [user, loadingAuth, router, toast]);
+    }, [user, loadingAuth, router, toast, db]);
 
 
     const handleGenderChange = (value: 'male' | 'female') => {
