@@ -22,7 +22,7 @@ import { useCart } from '@/context/cart-context';
 import { useWishlist } from '@/context/wishlist-context';
 import { Badge } from '@/components/ui/badge';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { SearchPopover } from './search-popover';
@@ -48,7 +48,9 @@ export function Header() {
   const [openStates, setOpenStates] = useState<{ [key: string]: boolean }>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-
+  
+  const auth = getAuthInstance();
+  const db = getDB();
   const [user, loading] = useAuthState(auth);
   const { toast } = useToast();
   const router = useRouter();
@@ -67,7 +69,7 @@ export function Header() {
         }
     }
     fetchNavData();
-  }, []);
+  }, [db]);
 
   const handleOpenChange = (key: string, open: boolean) => {
     setOpenStates(prev => ({...prev, [key]: open}));

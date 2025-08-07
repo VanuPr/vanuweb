@@ -1,8 +1,9 @@
+
 "use client"
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ export function SearchPopover() {
 
     useEffect(() => {
         if (open && products.length === 0) {
+            const db = getDB();
             const fetchProducts = async () => {
                 setLoading(true);
                 try {

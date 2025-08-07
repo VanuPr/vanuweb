@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
@@ -27,6 +27,7 @@ export function ServiceSlideshow() {
         const fetchSlides = async () => {
             setLoading(true);
             try {
+                const db = getDB();
                 const q = query(collection(db, "slideshow"), orderBy("createdAt", "asc"));
                 const querySnapshot = await getDocs(q);
                 const slidesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Slide));
