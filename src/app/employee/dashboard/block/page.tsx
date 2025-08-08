@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Users, Landmark, BarChart, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -37,6 +37,8 @@ interface Application {
 }
 
 export default function BlockDashboardPage() {
+    const auth = getAuthInstance();
+    const db = getDB();
     const [user] = useAuthState(auth);
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -89,7 +91,7 @@ export default function BlockDashboardPage() {
         };
 
         fetchData();
-    }, [user]);
+    }, [user, db]);
     
     const cardsThisMonthByTeam = applications.filter(app => app.coordinatorId !== user?.uid).length;
     const cardsThisMonthByMe = applications.filter(app => app.coordinatorId === user?.uid).length;
