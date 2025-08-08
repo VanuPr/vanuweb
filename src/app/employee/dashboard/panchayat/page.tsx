@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Landmark, BarChart, CheckCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db } from '@/lib/firebase';
+import { getAuthInstance, getDB } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { startOfMonth } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -21,6 +21,8 @@ interface Application {
 }
 
 export default function PanchayatDashboardPage() {
+    const auth = getAuthInstance();
+    const db = getDB();
     const [user] = useAuthState(auth);
     const [loading, setLoading] = useState(true);
     const [applications, setApplications] = useState<Application[]>([]);
@@ -50,7 +52,7 @@ export default function PanchayatDashboardPage() {
         };
 
         fetchMyData();
-    }, [user]);
+    }, [user, db]);
 
 
   return (
