@@ -12,29 +12,59 @@ export default function DownloadFormsPage() {
 
     const forms = [
         {
-            title: "Panchayat Coordinator Application Form",
-            description: "Application form for the Panchayat Coordinator role.",
-            url: "https://github.com/VanuPr/vanu-assets/raw/main/panchayatcoordinator.pdf",
+            title: "District Coordinator Form",
+            description: "Application form for the District Coordinator role.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/district%20coordinator.pdf",
             type: "Recruitment"
         },
         {
-            title: "Panchayat Stock Point Application Form",
-            description: "Application form to establish a Panchayat-level stock point.",
-            url: "https://github.com/VanuPr/vanu-assets/raw/main/panchaytstockpoint.pdf",
+            title: "District Education Head Form",
+            description: "Application form for the District Education Head position.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/district%20education%20head.pdf",
+            type: "Recruitment"
+        },
+        {
+            title: "District Stock Point Form",
+            description: "Application form to establish a District-level stock point.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/district%20stock%20point.pdf",
             type: "Application"
         },
         {
-            title: "Block Coordinator Application Form",
+            title: "Block Coordinator Form",
             description: "Application form for the Block Coordinator role.",
-            url: "https://github.com/VanuPr/vanu-assets/raw/main/blockcoordinator.pdf",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/block%20coordinator.pdf",
             type: "Recruitment"
         },
         {
-            title: "Coordinator Application Form (Legacy)",
-            description: "Legacy application form for District, Block, and Panchayat Coordinator positions.",
-            url: "https://github.com/akm12109/assets_vanu/raw/main/forms/Coordinator-Application-Form.pdf",
+            title: "Block Shikshika Form",
+            description: "Application form for the Block Shikshika (Teacher) role.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/block%20shikshika.pdf",
             type: "Recruitment"
-        }
+        },
+        {
+            title: "Block Stock Point Form",
+            description: "Application form to establish a Block-level stock point.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/block%20stock%20point.pdf",
+            type: "Application"
+        },
+        {
+            title: "Panchayat Coordinator Form",
+            description: "Application form for the Panchayat Coordinator role.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/panchayat%20coordinator.pdf",
+            type: "Recruitment"
+        },
+        {
+            title: "Panchayat Stock Point Form",
+            description: "Application form to establish a Panchayat-level stock point.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/panchayat%20stock%20point.pdf",
+            type: "Application"
+        },
+        {
+            title: "Ward Teacher Form",
+            description: "Application form for the Ward Teacher position.",
+            url: "https://raw.githubusercontent.com/VanuPr/vanu-assets/main/documents/ward%20teacher.pdf",
+            type: "Recruitment"
+        },
     ];
 
     return (
@@ -52,15 +82,15 @@ export default function DownloadFormsPage() {
                     <div className="max-w-3xl mx-auto space-y-6">
                         {forms.map((form, index) => (
                              <Card key={index}>
-                                <CardHeader className="flex flex-row items-center gap-4">
-                                     <div className="bg-primary/10 text-primary p-3 rounded-full">
+                                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                     <div className="bg-primary/10 text-primary p-3 rounded-full self-start">
                                         <FileText className="w-6 h-6" />
                                      </div>
                                      <div className="flex-1">
                                         <CardTitle>{form.title}</CardTitle>
-                                        <CardDescription>{form.description}</CardDescription>
+                                        <CardDescription className="mt-1">{form.description}</CardDescription>
                                      </div>
-                                      <a href={form.url} download target="_blank" rel="noopener noreferrer">
+                                      <a href={form.url} download target="_blank" rel="noopener noreferrer" className="sm:ml-auto">
                                         <Button>
                                             <Download className="mr-2 h-4 w-4" />
                                             Download
