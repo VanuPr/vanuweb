@@ -3,8 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { collection, addDoc, serverTimestamp, updateDoc, doc, setDoc } from 'firebase/firestore';
-import { db, auth, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getDB, getAuthInstance, getStorageInstance } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +17,8 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import Image from "next/image";
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
 
 declare global {
     interface Window {
@@ -28,6 +29,9 @@ declare global {
 export default function CoordinatorKisanCardPage() {
     const { toast } = useToast();
     const router = useRouter();
+    const auth = getAuthInstance();
+    const db = getDB();
+    const storage = getStorageInstance();
     const [user] = useAuthState(auth);
     const [isLoading, setIsLoading] = useState(false);
     const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
