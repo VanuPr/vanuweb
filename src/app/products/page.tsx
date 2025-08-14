@@ -8,7 +8,7 @@ import { useLanguage } from "@/context/language-context";
 import { ProductCard } from "@/components/product-card";
 import { useState, useEffect, useMemo } from "react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDB } from "@/lib/firebase";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,6 +41,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const db = getDB();
 
   useEffect(() => {
     const fetchProductsAndCategories = async () => {
@@ -72,7 +73,7 @@ export default function ProductsPage() {
         }
     };
     fetchProductsAndCategories();
-  }, [selectedCategory, categories.length]);
+  }, [selectedCategory, categories.length, db]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => 
