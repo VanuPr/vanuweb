@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDB } from '@/lib/firebase';
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +29,7 @@ export default function GalleryPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'image' | 'video'>('all');
     const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+    const db = getDB();
 
     useEffect(() => {
         const fetchItems = async () => {
@@ -45,7 +46,7 @@ export default function GalleryPage() {
             }
         };
         fetchItems();
-    }, []);
+    }, [db]);
 
     const filteredItems = allItems.filter(item => filter === 'all' || item.type === filter);
     const displayedItems = filteredItems.slice(0, visibleCount);
