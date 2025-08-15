@@ -20,13 +20,13 @@ export default function AboutPage() {
     {
       name: "Rishav Kumar",
       title: "Director",
-      image: "https://github.com/VanuPr/vanu-assets/blob/main/IMG-20250812-WA0011.jpg",
+      image: "https://github.com/VanuPr/vanu-assets/blob/main/IMG-20250812-WA0011.jpg?raw=true",
       aiHint: "professional headshot male"
     },
     {
       name: "Heera Kumari",
       title: "Director",
-      image: "https://github.com/VanuPr/vanu-assets/blob/main/IMG-20250811-WA0063.jpg",
+      image: "https://github.com/VanuPr/vanu-assets/blob/main/IMG-20250811-WA0063.jpg?raw=true",
       aiHint: "professional headshot female"
     },
   ];
